@@ -1,0 +1,24 @@
+/* src/styles/auth.css */
+.auth-page {
+  min-height: 100vh; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  background-image: radial-gradient(ellipse at top left, rgba(99,102,241,0.15) 0%, transparent 60%);
+}
+.auth-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 16px; padding: 40px; width: 100%; max-width: 420px;
+  box-shadow: var(--shadow);
+}
+.auth-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 24px; color: var(--primary); font-size: 22px; font-weight: 800; }
+.auth-card h2 { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
+.auth-subtitle { color: var(--muted); margin-bottom: 28px; }
+.auth-form { display: flex; flex-direction: column; gap: 16px; }
+.auth-footer { margin-top: 24px; text-align: center; color: var(--muted); font-size: 14px; }
+.form-row { display: flex; justify-content: flex-end; }
+.input-with-icon { position: relative; }
+.input-with-icon input { width: 100%; padding-right: 40px; }
+.pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; }
+.code-input { letter-spacing: 0.3em; font-size: 20px; text-align: center; }
+.verify-icon { display: flex; justify-content: center; margin-bottom: 16px; color: var(--primary); }
+.btn-primary { width: 100%; justify-content: center; padding: 12px; font-size: 15px; }

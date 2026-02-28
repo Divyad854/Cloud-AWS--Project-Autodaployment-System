@@ -1,0 +1,22 @@
+/* src/styles/settings.css */
+.settings-page { max-width: 640px; display: flex; flex-direction: column; gap: 20px; }
+.settings-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+.settings-card.danger-zone { border-color: rgba(239,68,68,0.3); }
+.settings-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.settings-section-header h3 { font-size: 16px; font-weight: 600; }
+.settings-form { display: flex; flex-direction: column; gap: 16px; }
+.settings-form .btn-primary { width: fit-content; }
+
+.toggle-list { display: flex; flex-direction: column; gap: 16px; }
+.toggle-item { display: flex; justify-content: space-between; align-items: center; }
+.toggle-label { font-weight: 500; margin-bottom: 3px; }
+.toggle-desc { color: var(--muted); font-size: 13px; }
+.toggle { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: var(--border); border-radius: 24px; cursor: pointer; transition: 0.2s; }
+.toggle-slider:before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.toggle input:checked + .toggle-slider { background: var(--primary); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(20px); }
+
+.danger-item { display: flex; justify-content: space-between; align-items: center; }
+.danger-item p:first-child { font-weight: 500; }
