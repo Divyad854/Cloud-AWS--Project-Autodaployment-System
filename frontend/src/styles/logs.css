@@ -1,0 +1,10 @@
+/* src/styles/logs.css */
+.logs-page { display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 130px); }
+.logs-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.log-type-tabs { display: flex; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.log-type-tabs button { padding: 8px 16px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.log-type-tabs button.active { background: var(--primary); color: #fff; }
+.logs-terminal { flex: 1; background: #0d1117; border: 1px solid var(--border); border-radius: var(--radius); display: flex; flex-direction: column; overflow: hidden; min-height: 400px; }
+.terminal-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--bg3); border-bottom: 1px solid var(--border); font-size: 13px; }
+.terminal-project { margin-left: auto; color: var(--primary); }
+.terminal-body { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: #98c379; overflow-y: auto; white-space: pre-wrap; line-height: 1.7; }

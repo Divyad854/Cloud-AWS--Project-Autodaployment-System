@@ -1,0 +1,25 @@
+{
+  "name": "cloudlaunch-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.0",
+    "axios": "^1.6.7",
+    "aws-amplify": "^6.0.0",
+    "@aws-amplify/ui-react": "^6.0.0",
+    "lucide-react": "^0.323.0",
+    "react-hot-toast": "^2.4.1",
+    "date-fns": "^3.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "vite": "^5.1.3"
+  }
+}

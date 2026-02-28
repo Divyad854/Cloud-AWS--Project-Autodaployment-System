@@ -1,0 +1,44 @@
+# infra/buildspec.yml
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - echo Build started at $(date)
+      - IMAGE_URI="$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG"
+
+  build:
+    commands:
+      - echo Building Docker image...
+      - |
+        if [ "$RUNTIME" = "Node.js" ] || [ "$RUNTIME" = "Express" ]; then
+          DOCKERFILE="node"
+        elif [ "$RUNTIME" = "Python" ] || [ "$RUNTIME" = "Django" ] || [ "$RUNTIME" = "FastAPI" ]; then
+          DOCKERFILE="python"
+        elif [ "$RUNTIME" = "React" ] || [ "$RUNTIME" = "Next.js" ]; then
+          DOCKERFILE="react"
+        else
+          DOCKERFILE="node"
+        fi
+      - cp /buildfiles/Dockerfile.$DOCKERFILE ./Dockerfile
+      - docker build -t $IMAGE_URI --build-arg APP_PORT=$APP_PORT .
+
+  post_build:
+    commands:
+      - echo Pushing image to ECR...
+      - docker push $IMAGE_URI
+      - echo Triggering deploy on EC2...
+      - |
+        curl -X POST "http://$EC2_HOST:8080/container/run" \
+          -H "Content-Type: application/json" \
+          -d "{\"projectId\":\"$PROJECT_ID\",\"image\":\"$IMAGE_URI\",\"port\":\"$APP_PORT\"}"
+      - |
+        aws dynamodb update-item \
+          --table-name cloudlaunch-projects \
+          --key "{\"id\":{\"S\":\"$PROJECT_ID\"}}" \
+          --update-expression "SET #s = :s, liveUrl = :url" \
+          --expression-attribute-names '{"#s":"status"}' \
+          --expression-attribute-values "{\":s\":{\"S\":\"running\"},\":url\":{\"S\":\"http://$EC2_PUBLIC_IP:$APP_PORT\"}}"
+      - echo Build complete.

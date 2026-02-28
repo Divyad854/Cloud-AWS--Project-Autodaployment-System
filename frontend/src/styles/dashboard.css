@@ -1,0 +1,5 @@
+/* src/styles/dashboard.css */
+.dashboard { max-width: 1100px; }
+.dashboard-welcome { margin-bottom: 24px; }
+.dashboard-welcome h2 { font-size: 22px; font-weight: 700; }
+.dashboard-welcome p { color: var(--muted); margin-top: 4px; }

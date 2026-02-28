@@ -1,0 +1,7 @@
+/* src/styles/admin.css */
+.admin-dashboard { max-width: 1200px; }
+.admin-page { max-width: 1200px; }
+.admin-tables { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+@media (max-width: 900px) { .admin-tables { grid-template-columns: 1fr; } }
+.admin-section { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.admin-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
