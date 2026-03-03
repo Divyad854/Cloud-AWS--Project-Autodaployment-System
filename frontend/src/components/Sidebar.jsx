@@ -2,12 +2,24 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Rocket, ScrollText, User,
-  Settings, LogOut, Users, FolderOpen, FileText, ChevronLeft, ChevronRight
+  LayoutDashboard,
+  Rocket,
+  ScrollText,
+  User,
+  Settings,
+  LogOut,
+  Users,
+  FolderOpen,
+  FileText,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import '../styles/sidebar.css';
+
+// LOGO
+import logo from '../assets/logo/Autodeployment.png';
 
 const userNav = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -42,39 +54,76 @@ export default function Sidebar({ admin }) {
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+
+      {/* ===== HEADER ===== */}
       <div className="sidebar-header">
-        <div className="logo">
-          <Rocket size={24} className="logo-icon" />
-          {!collapsed && <span className="logo-text">CloudLaunch</span>}
+
+        <div className="brand">
+          <div className="logo">
+            <img
+              src={logo}
+              alt="AutoDeployment"
+              className="app-logo"
+            />
+          </div>
+{!collapsed && (
+  <div className="brand-text">
+    <span className="project-title">Project</span>
+    <span className="project-title">AutoDeployment</span>
+    <span className="project-title">System</span>
+  </div>
+)}
         </div>
-        {admin && !collapsed && <span className="admin-badge">Admin</span>}
-        <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)}>
+
+        {admin && !collapsed && (
+          <span className="admin-badge">Admin</span>
+        )}
+
+        <button
+          className="collapse-btn"
+          onClick={() => setCollapsed(!collapsed)}
+        >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
 
+      {/* ===== NAV ===== */}
       <nav className="sidebar-nav">
         {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `nav-item ${isActive ? 'active' : ''}`
+            }
+          >
             <Icon size={20} />
             {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
 
+      {/* ===== FOOTER ===== */}
       <div className="sidebar-footer">
         {!collapsed && (
           <div className="user-info">
             <div className="user-avatar">
-              {(userAttributes?.name || userAttributes?.email || 'U')[0].toUpperCase()}
+              {(userAttributes?.name ||
+                userAttributes?.email ||
+                'U')[0].toUpperCase()}
             </div>
-            <div className="user-details">
-              <span className="user-name">{userAttributes?.name || 'User'}</span>
-              <span className="user-email">{userAttributes?.email}</span>
+            <div>
+              <div className="user-name">
+                {userAttributes?.name || 'User'}
+              </div>
+              <div className="user-email">
+                {userAttributes?.email}
+              </div>
             </div>
           </div>
         )}
-        <button className="logout-btn" onClick={handleLogout} title="Logout">
+
+        <button className="logout-btn" onClick={handleLogout}>
           <LogOut size={20} />
           {!collapsed && <span>Logout</span>}
         </button>
