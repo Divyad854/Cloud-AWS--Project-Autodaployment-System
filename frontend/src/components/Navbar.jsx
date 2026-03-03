@@ -19,7 +19,7 @@ const routeTitles = {
 export default function Navbar() {
   const location = useLocation();
   const { userAttributes } = useAuth();
-  const title = routeTitles[location.pathname] || 'CloudLaunch';
+  const title = routeTitles[location.pathname] || 'Cloud AutoDeployment System';
 
   return (
     <header className="navbar">

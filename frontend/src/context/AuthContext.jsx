@@ -1,9 +1,15 @@
 // src/context/AuthContext.jsx
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
-  signIn, signOut, signUp, confirmSignUp,
-  getCurrentUser, fetchUserAttributes,
-  resetPassword, confirmResetPassword, updatePassword,
+  signIn,
+  signOut,
+  signUp,
+  confirmSignUp,
+  getCurrentUser,
+  fetchUserAttributes,
+  resetPassword,
+  confirmResetPassword,
+  updatePassword,
   updateUserAttributes,
 } from 'aws-amplify/auth';
 
@@ -22,9 +28,14 @@ export function AuthProvider({ children }) {
     try {
       const currentUser = await getCurrentUser();
       const attrs = await fetchUserAttributes();
+
+      console.log("USER 👉", currentUser);
+      console.log("ATTRIBUTES 👉", attrs);
+      console.log("ROLE 👉", attrs?.['custom:role'] || attrs?.role);
+
       setUser(currentUser);
       setUserAttributes(attrs);
-    } catch {
+    } catch (error) {
       setUser(null);
       setUserAttributes(null);
     } finally {
@@ -33,10 +44,15 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const result = await signIn({ username: email, password });
+    const result = await signIn({
+      username: email,
+      password,
+    });
+
     if (result.isSignedIn) {
       await checkUser();
     }
+
     return result;
   }
 
@@ -50,12 +66,20 @@ export function AuthProvider({ children }) {
     return await signUp({
       username: email,
       password,
-      options: { userAttributes: { email, name } },
+      options: {
+        userAttributes: {
+          email,
+          name,
+        },
+      },
     });
   }
 
   async function confirmRegistration(email, code) {
-    return await confirmSignUp({ username: email, confirmationCode: code });
+    return await confirmSignUp({
+      username: email,
+      confirmationCode: code,
+    });
   }
 
   async function forgotPassword(email) {
@@ -63,7 +87,11 @@ export function AuthProvider({ children }) {
   }
 
   async function confirmForgotPassword(email, code, newPassword) {
-    return await confirmResetPassword({ username: email, confirmationCode: code, newPassword });
+    return await confirmResetPassword({
+      username: email,
+      confirmationCode: code,
+      newPassword,
+    });
   }
 
   async function changePassword(oldPassword, newPassword) {
@@ -75,14 +103,28 @@ export function AuthProvider({ children }) {
     await checkUser();
   }
 
-  const isAdmin = userAttributes?.['custom:role'] === 'admin';
+  // 🔥 SAFE ADMIN CHECK (handles both formats)
+  const isAdmin =
+    userAttributes?.['custom:role'] === 'admin' ||
+    userAttributes?.role === 'admin';
 
   return (
-    <AuthContext.Provider value={{
-      user, userAttributes, loading, isAdmin,
-      login, logout, register, confirmRegistration,
-      forgotPassword, confirmForgotPassword, changePassword, updateProfile,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        userAttributes,
+        loading,
+        isAdmin,
+        login,
+        logout,
+        register,
+        confirmRegistration,
+        forgotPassword,
+        confirmForgotPassword,
+        changePassword,
+        updateProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -90,6 +132,8 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return ctx;
 };
