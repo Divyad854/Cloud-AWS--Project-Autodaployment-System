@@ -1,14 +1,25 @@
-// routes/admin.js
 const express = require('express');
 const router = express.Router();
-const ac = require('../controllers/adminController');
 
-router.get('/users', ac.listUsers);
-router.post('/users/:userId/block', ac.blockUser);
-router.delete('/users/:userId', ac.deleteUser);
-router.get('/projects', ac.listAllProjects);
-router.post('/projects/:id/stop', ac.stopProject);
-router.delete('/projects/:id', ac.deleteProject);
-router.get('/logs', ac.getSystemLogs);
+const authenticate = require('../middleware/auth');
+const adminOnly = require('../middleware/adminOnly');
+const adminController = require('../controllers/adminController');
+
+// Protect all admin routes
+router.use(authenticate);
+router.use(adminOnly);
+
+// USERS
+router.get('/users', adminController.listUsers);
+router.post('/users/:userId/block', adminController.blockUser);
+router.delete('/users/:userId', adminController.deleteUser);
+
+// PROJECTS
+router.get('/projects', adminController.listAllProjects);
+router.post('/projects/:id/stop', adminController.stopProject);
+router.delete('/projects/:id', adminController.deleteProject);
+
+// LOGS
+router.get('/logs', adminController.getSystemLogs);
 
 module.exports = router;

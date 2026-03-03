@@ -1,29 +1,62 @@
-// middleware/auth.js
-const { expressjwt: jwt } = require('express-jwt');
-const jwksRsa = require('jwks-rsa');
+const jwt = require('jsonwebtoken');
+const jwkToPem = require('jwk-to-pem');
+const axios = require('axios');
 
-const region = process.env.AWS_REGION || 'us-east-1';
-const userPoolId = process.env.COGNITO_USER_POOL_ID;
-const issuer = `https://cognito-idp.${region}.amazonaws.com/${userPoolId}`;
-const jwksUri = `${issuer}/.well-known/jwks.json`;
+let pems = {};
 
-const authMiddleware = jwt({
-  secret: jwksRsa.expressJwtSecret({
-    cache: true, rateLimit: true,
-    jwksRequestsPerMinute: 5,
-    jwksUri,
-  }),
-  audience: process.env.COGNITO_CLIENT_ID,
-  issuer,
-  algorithms: ['RS256'],
-});
+// Load Cognito public keys
+async function loadKeys() {
+  if (Object.keys(pems).length > 0) return;
 
-const adminMiddleware = (req, res, next) => {
-  const groups = req.auth?.['cognito:groups'] || [];
-  if (!groups.includes('admin')) {
-    return res.status(403).json({ message: 'Admin access required' });
+  const url = `https://cognito-idp.${process.env.AWS_REGION}.amazonaws.com/${process.env.COGNITO_USER_POOL_ID}/.well-known/jwks.json`;
+
+  const response = await axios.get(url);
+
+  response.data.keys.forEach(key => {
+    pems[key.kid] = jwkToPem(key);
+  });
+}
+
+module.exports = async (req, res, next) => {
+  try {
+    await loadKeys();
+
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader) {
+      return res.status(401).json({ message: 'No Authorization header' });
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ message: 'Token missing' });
+    }
+
+    const decoded = jwt.decode(token, { complete: true });
+
+    if (!decoded) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    const pem = pems[decoded.header.kid];
+
+    if (!pem) {
+      return res.status(401).json({ message: 'Invalid token key' });
+    }
+
+    jwt.verify(token, pem, { algorithms: ['RS256'] }, (err, payload) => {
+      if (err) {
+        console.log('JWT VERIFY ERROR:', err.message);
+        return res.status(401).json({ message: 'Token verification failed' });
+      }
+
+      req.user = payload;
+      next();
+    });
+
+  } catch (err) {
+    console.error('AUTH ERROR:', err.message);
+    res.status(401).json({ message: 'Authentication failed' });
   }
-  next();
 };
-
-module.exports = { authMiddleware, adminMiddleware };
