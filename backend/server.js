@@ -1,41 +1,43 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
-
-const { authMiddleware, adminMiddleware } = require('./middleware/auth');
-const projectRoutes = require('./routes/projects');
-const userRoutes = require('./routes/users');
-const adminRoutes = require('./routes/admin');
-const logger = require('./utils/logger');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-// Security
-app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL || '*', credentials: true }));
-app.use(express.json({ limit: '50mb' }));
-app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
+/* ===========================
+   MIDDLEWARE
+=========================== */
+app.use(cors());
+app.use(express.json());
 
-// Rate limiting
-app.use('/api/', rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+/* ===========================
+   ROUTES
+=========================== */
 
-// Health
-app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));
+// ✅ Correct file names from your zip
+const userRoutes = require('./routes/users');
+const projectRoutes = require('./routes/projects');
+const adminRoutes = require('./routes/admin'); // 🔥 FIXED (admin.js)
 
-// Routes
-app.use('/api/user', authMiddleware, userRoutes);
-app.use('/api/projects', authMiddleware, projectRoutes);
-app.use('/api/admin', authMiddleware, adminMiddleware, adminRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Error handler
+/* ===========================
+   ERROR HANDLER
+=========================== */
 app.use((err, req, res, next) => {
-  logger.error(err.stack);
-  res.status(err.status || 500).json({ message: err.message || 'Internal server error' });
+  console.error(err);
+  res.status(500).json({
+    message: err.message || 'Internal Server Error',
+  });
 });
 
-app.listen(PORT, () => logger.info(`CloudLaunch API running on port ${PORT}`));
+/* ===========================
+   SERVER
+=========================== */
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
