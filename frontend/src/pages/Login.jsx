@@ -90,14 +90,15 @@ export default function Login() {
   return (
     <div className="auth-page">
       <div className="auth-card">
+<div className="auth-logo">
+  <img src={logo} alt="Auto Deployment Logo" className="logo-img" />
+  <h1 className="project-title">Project Deployment System</h1>
+</div>
 
-        <div className="auth-logo">
-          <img src={logo} alt="Auto Deployment Logo" className="logo-img" />
-          <span>Project Deployment System</span>
-        </div>
-
-        <h2>Welcome back</h2>
-        <p className="auth-subtitle">Sign in to your account</p>
+      <div className="welcome-row">
+  <h2 className="welcome-title">Welcome back</h2>
+  <span className="auth-subtitle">Sign in to your account</span>
+</div>
 
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
