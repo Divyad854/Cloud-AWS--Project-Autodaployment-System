@@ -1,58 +1,76 @@
-/* src/styles/auth.css */
+/* ================= PAGE ================= */
 
 .auth-page {
   min-height: 100vh;
-  background: var(--bg);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #0b1220;
   padding: 20px;
-  background-image: radial-gradient(
-    ellipse at top left,
-    rgba(99, 102, 241, 0.15) 0%,
-    transparent 60%
-  );
 }
 
+/* ================= CARD ================= */
+
 .auth-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 40px;
   width: 100%;
-  max-width: 420px;
-  box-shadow: var(--shadow);
+  max-width: 380px;        /* Compact width */
+  min-height: 540px;       /* 🔥 Taller card */
+  background: #111827;
+  border-radius: 18px;
+  padding: 40px 30px;
+  border: 1px solid #1f2937;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
 }
+
+/* ================= LOGO ================= */
 
 .auth-logo {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 12px;
   margin-bottom: 28px;
-  color: var(--primary);
-  font-size: 22px;
-  font-weight: 800;
 }
 
 .logo-img {
-  width: 48px;
-  height: 48px;
-  object-fit: contain;
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  background: #0b1220;
+  padding: 6px;
+  border: 1px solid #1f2937;
 }
 
-.auth-card h2 {
-  font-size: 24px;
+.auth-logo .project-title {
+  font-size: 20px;
   font-weight: 700;
-  margin-bottom: 6px;
-  text-align: center;
+  margin: 0;
+  color: #ffffff;
+}
+
+/* ================= WELCOME ================= */
+/* ================= WELCOME ROW ================= */
+
+.welcome-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 26px;
+  white-space: nowrap;   /* 🔥 Prevent line break */
+}
+
+.welcome-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: #6366f1;
 }
 
 .auth-subtitle {
-  color: var(--muted);
-  margin-bottom: 28px;
-  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
 }
+
+/* ================= FORM ================= */
 
 .auth-form {
   display: flex;
@@ -60,18 +78,35 @@
   gap: 16px;
 }
 
-.form-row {
-  display: flex;
-  justify-content: flex-end;
+.form-group label {
+  font-size: 13px;
+  color: #cbd5e1;
 }
+
+.form-group input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #334155;
+  background: #1f2937;
+  color: #ffffff;
+  margin-top: 5px;
+  font-size: 13px;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+/* ================= PASSWORD ICON ================= */
 
 .input-with-icon {
   position: relative;
 }
 
 .input-with-icon input {
-  width: 100%;
-  padding-right: 40px;
+  padding-right: 38px;
 }
 
 .pw-toggle {
@@ -81,32 +116,65 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: var(--muted);
+  color: #9ca3af;
   cursor: pointer;
 }
 
+/* ================= BUTTON ================= */
+
 .btn-primary {
-  width: 100%;
-  padding: 12px;
-  font-size: 15px;
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: 12px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
   justify-content: center;
 }
 
-.auth-footer {
-  margin-top: 24px;
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
+.btn-primary:hover {
+  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.35);
 }
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ================= LINKS ================= */
+
+.link {
+  color: #818cf8;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.auth-footer {
+  margin-top: 38px;   /* More breathing space */
+  text-align: center;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* ================= WARNINGS ================= */
 
 .attempt-warning {
   color: #f59e0b;
-  font-size: 14px;
+  font-size: 12px;
   text-align: center;
 }
 
 .lock-warning {
   color: #ef4444;
-  font-size: 14px;
+  font-size: 12px;
   text-align: center;
 }
