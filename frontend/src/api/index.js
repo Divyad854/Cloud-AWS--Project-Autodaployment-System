@@ -33,7 +33,11 @@ export const getRuntimeLogs = (id) => api.get(`/projects/${id}/logs/runtime`);
 // Admin
 export const adminGetUsers = () => api.get('/admin/users');
 export const adminGetProjects = () => api.get('/admin/projects');
-export const adminBlockUser = (userId) => api.post(`/admin/users/${userId}/block`);
+export const adminBlockUser = (userId) =>
+  api.post(`/admin/users/${userId}/block`);
+
+export const adminUnblockUser = (userId) =>
+  api.post(`/admin/users/${userId}/unblock`);
 export const adminDeleteUser = (userId) => api.delete(`/admin/users/${userId}`);
 export const adminStopProject = (id) => api.post(`/admin/projects/${id}/stop`);
 export const adminDeleteProject = (id) => api.delete(`/admin/projects/${id}`);
