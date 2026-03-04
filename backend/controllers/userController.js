@@ -1,27 +1,72 @@
-// controllers/userController.js
-const { cognitoISP } = require('../config/aws');
+const { dynamo, TABLES } = require('../config/dynamo');
 
 exports.getProfile = async (req, res, next) => {
   try {
-    const result = await cognitoISP.adminGetUser({
-      UserPoolId: process.env.COGNITO_USER_POOL_ID,
-      Username: req.auth.sub,
+
+    const userId = req.user.sub;
+
+    const result = await dynamo.get({
+      TableName: TABLES.USERS,
+      Key: { id: userId }
     }).promise();
 
-    const attrs = {};
-    result.UserAttributes.forEach(a => { attrs[a.Name] = a.Value; });
-    res.json({ profile: { id: req.auth.sub, email: attrs.email, name: attrs.name, emailVerified: attrs.email_verified } });
-  } catch (err) { next(err); }
+    res.json({ profile: result.Item || null });
+
+  } catch (err) {
+    next(err);
+  }
 };
+
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name } = req.body;
-    await cognitoISP.adminUpdateUserAttributes({
-      UserPoolId: process.env.COGNITO_USER_POOL_ID,
-      Username: req.auth.sub,
-      UserAttributes: [{ Name: 'name', Value: name }],
-    }).promise();
-    res.json({ message: 'Profile updated' });
-  } catch (err) { next(err); }
+
+    const userId = req.user.sub;
+
+    const {
+      name,
+      email,
+      userType,
+      profilePhotoUrl,
+      mobileNo,
+      country,
+      state,
+      city,
+      collegeName,
+      companyName,
+      bio,
+      github
+    } = req.body;
+
+    const now = new Date().toISOString();
+
+    const params = {
+      TableName: TABLES.USERS,
+      Item: {
+        id: userId,
+        name,
+        email,
+        userType,
+        profilePhotoUrl,
+        mobileNo,
+        country,
+        state,
+        city,
+        collegeName,
+        companyName,
+        bio,
+        github,
+        profileCompleted: true,
+        createdAt: now,
+        updatedAt: now
+      }
+    };
+
+    await dynamo.put(params).promise();
+
+    res.json({ message: "Profile saved successfully" });
+
+  } catch (err) {
+    next(err);
+  }
 };

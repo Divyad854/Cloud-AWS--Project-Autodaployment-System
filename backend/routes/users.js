@@ -1,9 +1,10 @@
-// routes/users.js
 const express = require('express');
 const router = express.Router();
-const uc = require('../controllers/userController');
 
-router.get('/profile', uc.getProfile);
-router.put('/profile', uc.updateProfile);
+const auth = require('../middleware/auth');
+const { getProfile, updateProfile } = require('../controllers/userController');
+
+router.get('/profile', auth, getProfile);
+router.put('/profile', auth, updateProfile);
 
 module.exports = router;
