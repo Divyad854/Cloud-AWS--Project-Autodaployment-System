@@ -12,6 +12,7 @@ router.use(adminOnly);
 // USERS
 router.get('/users', adminController.listUsers);
 router.post('/users/:userId/block', adminController.blockUser);
+router.post('/users/:id/unblock', adminController.unblockUser);
 router.delete('/users/:userId', adminController.deleteUser);
 
 // PROJECTS
