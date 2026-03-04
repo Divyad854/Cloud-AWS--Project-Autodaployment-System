@@ -66,23 +66,40 @@ export default function Login() {
 
       toast.success('Welcome back!');
 
-    } catch (err) {
-      const newAttempts = attempts + 1;
-      setAttempts(newAttempts);
+    }catch (err) {
 
-      const newRemaining = remainingAttempts - 1;
-      setRemainingAttempts(newRemaining);
+  console.log("LOGIN ERROR:", err);
 
-      toast.error(
-        `Login failed. ${newRemaining > 0 ? `${newRemaining} attempt(s) remaining.` : 'Too many attempts!'}`
-      );
+  // 🔴 BLOCKED USER CHECK
+  if (
+    err.name === "UserDisabledException" ||
+    err.message?.includes("disabled")
+  ) {
+    toast.error("Your account has been blocked by admin.");
+    return;
+  }
 
-      if (newRemaining === 0) {
-        const lockSeconds = 30 * lockLevel;
-        setLockTime(lockSeconds);
-        setLockLevel(lockLevel + 1);
-      }
-    } finally {
+  const newAttempts = attempts + 1;
+  setAttempts(newAttempts);
+
+  const newRemaining = remainingAttempts - 1;
+  setRemainingAttempts(newRemaining);
+
+  toast.error(
+    `Login failed. ${
+      newRemaining > 0
+        ? `${newRemaining} attempt(s) remaining.`
+        : "Too many attempts!"
+    }`
+  );
+
+  if (newRemaining === 0) {
+    const lockSeconds = 30 * lockLevel;
+    setLockTime(lockSeconds);
+    setLockLevel(lockLevel + 1);
+  }
+
+}finally {
       setLoading(false);
     }
   };
