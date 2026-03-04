@@ -58,14 +58,45 @@ exports.blockUser = async (req, res, next) => {
     next(err);
   }
 };
+exports.unblockUser = async (req, res) => {
 
+  try {
 
-/* DELETE USER */
+    await cognitoISP.adminEnableUser({
+      UserPoolId: process.env.COGNITO_USER_POOL_ID,
+      Username: req.params.id
+    }).promise();
+
+    res.json({
+      message: "User unblocked"
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      message: "Failed to unblock user"
+    });
+
+  }
+
+};
 exports.deleteUser = async (req, res, next) => {
   try {
+
+    const userId = req.params.userId;
+
+    // Delete from Cognito
     await cognitoISP.adminDeleteUser({
       UserPoolId: process.env.COGNITO_USER_POOL_ID,
-      Username: req.params.userId,
+      Username: userId,
+    }).promise();
+
+    // Delete from DynamoDB
+    await dynamo.delete({
+      TableName: TABLES.USERS,
+      Key: { id: userId }
     }).promise();
 
     res.json({ message: 'User deleted successfully' });
