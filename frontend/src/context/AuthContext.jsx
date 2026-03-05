@@ -1,150 +1,13 @@
-// // src/context/AuthContext.jsx
-// import { createContext, useContext, useEffect, useState } from 'react';
-// import {
-//   signIn,
-//   signOut,
-//   signUp,
-//   confirmSignUp,
-//   getCurrentUser,
-//   fetchUserAttributes,
-//   resetPassword,
-//   confirmResetPassword,
-//   updatePassword,
-//   updateUserAttributes,
-// } from 'aws-amplify/auth';
-
-// const AuthContext = createContext(null);
-
-// export function AuthProvider({ children }) {
-//   const [user, setUser] = useState(null);
-//   const [loading, setLoading] = useState(true);
-//   const [userAttributes, setUserAttributes] = useState(null);
-
-//   useEffect(() => {
-//     checkUser();
-//   }, []);
-
-//   async function checkUser() {
-//     try {
-//       const currentUser = await getCurrentUser();
-//       const attrs = await fetchUserAttributes();
-
-//       console.log("USER 👉", currentUser);
-//       console.log("ATTRIBUTES 👉", attrs);
-//       console.log("ROLE 👉", attrs?.['custom:role'] || attrs?.role);
-
-//       setUser(currentUser);
-//       setUserAttributes(attrs);
-//     } catch (error) {
-//       setUser(null);
-//       setUserAttributes(null);
-//     } finally {
-//       setLoading(false);
-//     }
-//   }
-
-//   async function login(email, password) {
-//     const result = await signIn({
-//       username: email,
-//       password,
-//     });
-
-//     if (result.isSignedIn) {
-//       await checkUser();
-//     }
-
-//     return result;
-//   }
-
-//   async function logout() {
-//     await signOut();
-//     setUser(null);
-//     setUserAttributes(null);
-//   }
-
-//   async function register(email, password, name) {
-//     return await signUp({
-//       username: email,
-//       password,
-//       options: {
-//         userAttributes: {
-//           email,
-//           name,
-//         },
-//       },
-//     });
-//   }
-
-//   async function confirmRegistration(email, code) {
-//     return await confirmSignUp({
-//       username: email,
-//       confirmationCode: code,
-//     });
-//   }
-
-//   async function forgotPassword(email) {
-//     return await resetPassword({ username: email });
-//   }
-
-//   async function confirmForgotPassword(email, code, newPassword) {
-//     return await confirmResetPassword({
-//       username: email,
-//       confirmationCode: code,
-//       newPassword,
-//     });
-//   }
-
-//   async function changePassword(oldPassword, newPassword) {
-//     return await updatePassword({ oldPassword, newPassword });
-//   }
-
-//   async function updateProfile(attributes) {
-//     await updateUserAttributes({ userAttributes: attributes });
-//     await checkUser();
-//   }
-
-//   // 🔥 SAFE ADMIN CHECK (handles both formats)
-//   const isAdmin =
-//     userAttributes?.['custom:role'] === 'admin' ||
-//     userAttributes?.role === 'admin';
-
-//   return (
-//     <AuthContext.Provider
-//       value={{
-//         user,
-//         userAttributes,
-//         loading,
-//         isAdmin,
-//         login,
-//         logout,
-//         register,
-//         confirmRegistration,
-//         forgotPassword,
-//         confirmForgotPassword,
-//         changePassword,
-//         updateProfile,
-//       }}
-//     >
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-// export const useAuth = () => {
-//   const ctx = useContext(AuthContext);
-//   if (!ctx) {
-//     throw new Error('useAuth must be used within AuthProvider');
-//   }
-//   return ctx;
-// };
 
 // src/context/AuthContext.jsx
+
 import { createContext, useContext, useEffect, useState } from 'react';
 import {
   signIn,
   signOut,
   signUp,
   confirmSignUp,
+  resendSignUpCode,
   getCurrentUser,
   fetchUserAttributes,
   resetPassword,
@@ -156,6 +19,7 @@ import {
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [userAttributes, setUserAttributes] = useState(null);
@@ -166,6 +30,7 @@ export function AuthProvider({ children }) {
 
   async function checkUser() {
     try {
+
       const currentUser = await getCurrentUser();
       const attrs = await fetchUserAttributes();
 
@@ -175,15 +40,22 @@ export function AuthProvider({ children }) {
 
       setUser(currentUser);
       setUserAttributes(attrs);
+
     } catch (error) {
+
       setUser(null);
       setUserAttributes(null);
+
     } finally {
+
       setLoading(false);
+
     }
   }
 
+  /* LOGIN */
   async function login(email, password) {
+
     const result = await signIn({
       username: email,
       password,
@@ -196,13 +68,16 @@ export function AuthProvider({ children }) {
     return result;
   }
 
+  /* LOGOUT */
   async function logout() {
     await signOut();
     setUser(null);
     setUserAttributes(null);
   }
 
+  /* REGISTER */
   async function register(email, password, name) {
+
     return await signUp({
       username: email,
       password,
@@ -213,42 +88,75 @@ export function AuthProvider({ children }) {
         },
       },
     });
+
   }
 
+  /* CONFIRM EMAIL */
   async function confirmRegistration(email, code) {
+
     return await confirmSignUp({
       username: email,
       confirmationCode: code,
     });
+
   }
 
+  /* 🔥 RESEND VERIFICATION CODE */
+  async function resendConfirmationCode(email) {
+
+    return await resendSignUpCode({
+      username: email,
+    });
+
+  }
+
+  /* FORGOT PASSWORD */
   async function forgotPassword(email) {
-    return await resetPassword({ username: email });
+
+    return await resetPassword({
+      username: email,
+    });
+
   }
 
+  /* CONFIRM RESET PASSWORD */
   async function confirmForgotPassword(email, code, newPassword) {
+
     return await confirmResetPassword({
       username: email,
       confirmationCode: code,
       newPassword,
     });
+
   }
 
+  /* CHANGE PASSWORD */
   async function changePassword(oldPassword, newPassword) {
-    return await updatePassword({ oldPassword, newPassword });
+
+    return await updatePassword({
+      oldPassword,
+      newPassword,
+    });
+
   }
 
+  /* UPDATE PROFILE */
   async function updateProfile(attributes) {
-    await updateUserAttributes({ userAttributes: attributes });
+
+    await updateUserAttributes({
+      userAttributes: attributes,
+    });
+
     await checkUser();
   }
 
-  // 🔥 SAFE ADMIN CHECK (handles both formats)
+  /* ADMIN CHECK */
   const isAdmin =
     userAttributes?.['custom:role'] === 'admin' ||
     userAttributes?.role === 'admin';
 
   return (
+
     <AuthContext.Provider
       value={{
         user,
@@ -259,21 +167,30 @@ export function AuthProvider({ children }) {
         logout,
         register,
         confirmRegistration,
+        resendConfirmationCode,
         forgotPassword,
         confirmForgotPassword,
         changePassword,
         updateProfile,
       }}
     >
+
       {children}
+
     </AuthContext.Provider>
+
   );
 }
 
 export const useAuth = () => {
+
   const ctx = useContext(AuthContext);
+
   if (!ctx) {
     throw new Error('useAuth must be used within AuthProvider');
   }
+
   return ctx;
+
 };
+
