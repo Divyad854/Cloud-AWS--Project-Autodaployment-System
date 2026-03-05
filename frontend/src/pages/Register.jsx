@@ -73,10 +73,33 @@ export default function Register() {
       <div className="auth-card">
 
         {/* 🔥 Logo Section */}
-        <div className="auth-logo">
-          <img src={logo} alt="Auto Deployment Logo" className="logo-img" />
-          <h1 className="project-title">Project Deployment System</h1>
-        </div>
+        <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "14px",
+      marginBottom: "20px",
+    }}
+  >
+    <img
+      src={logo}
+      alt="logo"
+      style={{
+        width: "48px",
+        height: "48px",
+        borderRadius: "10px",
+      }}
+    />
+
+    <h2
+      style={{
+        fontSize: "20px",
+        fontWeight: "600",
+      }}
+    >
+      Project Deployment System
+    </h2>
+  </div>
 
         <div className="welcome-row">
           <h2 className="welcome-title">Create account</h2>
