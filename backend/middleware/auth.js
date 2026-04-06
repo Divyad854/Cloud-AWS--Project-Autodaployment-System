@@ -52,6 +52,7 @@ module.exports = async (req, res, next) => {
       }
 
       req.user = payload;
+      req.auth = payload; // keep backwards compatibility
       next();
     });
 

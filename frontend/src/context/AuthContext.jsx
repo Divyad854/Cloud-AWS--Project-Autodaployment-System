@@ -10,6 +10,7 @@ import {
   resendSignUpCode,
   getCurrentUser,
   fetchUserAttributes,
+  fetchAuthSession,
   resetPassword,
   confirmResetPassword,
   updatePassword,
@@ -17,6 +18,24 @@ import {
 } from 'aws-amplify/auth';
 
 const AuthContext = createContext(null);
+
+// Helper function to decode JWT token
+function decodeToken(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (err) {
+    console.error('Token decode error:', err);
+    return null;
+  }
+}
 
 export function AuthProvider({ children }) {
 
@@ -33,13 +52,28 @@ export function AuthProvider({ children }) {
 
       const currentUser = await getCurrentUser();
       const attrs = await fetchUserAttributes();
+      
+      // Get ID token to extract custom:role claim
+      const session = await fetchAuthSession();
+      const idToken = session?.tokens?.idToken;
+      let roleFromToken = null;
+      
+      if (idToken) {
+        const decoded = decodeToken(idToken.toString());
+        roleFromToken = decoded?.['custom:role'];
+      }
+
+      const enrichedAttrs = {
+        ...attrs,
+        'custom:role': roleFromToken || attrs?.['custom:role'] || 'user',
+      };
 
       console.log("USER 👉", currentUser);
-      console.log("ATTRIBUTES 👉", attrs);
-      console.log("ROLE 👉", attrs?.['custom:role'] || attrs?.role);
+      console.log("ATTRIBUTES 👉", enrichedAttrs);
+      console.log("ROLE 👉", enrichedAttrs?.['custom:role']);
 
       setUser(currentUser);
-      setUserAttributes(attrs);
+      setUserAttributes(enrichedAttrs);
 
     } catch (error) {
 

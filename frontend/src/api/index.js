@@ -1,6 +1,6 @@
 // src/api/index.js
 import axios from 'axios';
-import { fetchAuthSession } from 'aws-amplify/auth';
+import * as Auth from '@aws-amplify/auth';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
@@ -8,19 +8,34 @@ const api = axios.create({
 
 api.interceptors.request.use(async (config) => {
   try {
-    const session = await fetchAuthSession();
-    const token = session.tokens?.idToken?.toString();
+    const session = await Auth.fetchAuthSession();
+    let token;
+
+    if (typeof session?.getIdToken === 'function') {
+      token = session.getIdToken()?.getJwtToken?.();
+    }
+
+    if (!token && session?.tokens?.idToken) {
+      if (typeof session.tokens.idToken.toString === 'function') {
+        token = session.tokens.idToken.toString();
+      } else if (session.tokens.idToken?.jwtToken) {
+        token = session.tokens.idToken.jwtToken;
+      }
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('Auth session not available', err?.message || err);
+  }
   return config;
 });
 
 // Projects
 export const getProjects = () => api.get('/projects');
 export const getProject = (id) => api.get(`/projects/${id}`);
-export const deployProject = (data) => api.post('/projects', data);
+export const deployProject = (data) => api.post('/deploy', data);
 export const redeployProject = (id) => api.post(`/projects/${id}/redeploy`);
 export const stopProject = (id) => api.post(`/projects/${id}/stop`);
 export const restartProject = (id) => api.post(`/projects/${id}/restart`);

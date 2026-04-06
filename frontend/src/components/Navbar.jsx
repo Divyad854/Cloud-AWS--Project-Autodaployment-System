@@ -11,6 +11,7 @@ const routeTitles = {
   '/deploy': 'Deploy Project',
   '/logs': 'Logs',
   '/profile': 'Profile',
+  '/admin/profile': 'Profile',
   '/settings': 'Settings',
   '/admin/dashboard': 'Admin Dashboard',
   '/admin/users': 'User Management',
@@ -21,7 +22,7 @@ const routeTitles = {
 export default function Navbar() {
 
   const location = useLocation();
-  const { userAttributes } = useAuth();
+  const { userAttributes, isAdmin } = useAuth();
   const title = routeTitles[location.pathname] || 'Cloud AutoDeployment System';
 
   const [avatar, setAvatar] = useState("");
@@ -74,7 +75,7 @@ export default function Navbar() {
           <span className="badge">3</span>
         </button>
 
-        <Link to="/profile" className="nav-avatar">
+        <Link to={isAdmin ? '/admin/profile' : '/profile'} className="nav-avatar">
 
           {avatar ? (
             <img src={avatar} alt="profile" />

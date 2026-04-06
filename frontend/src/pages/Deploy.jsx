@@ -1,7 +1,6 @@
 // src/pages/Deploy.jsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { deployProject } from '../api';
+import { deployProject, getProject } from '../api';
 import { Github, Upload, Rocket, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import '../styles/deploy.css';
@@ -71,8 +70,6 @@ const RUNTIMES = [
 ];
 
 export default function Deploy() {
-  const navigate = useNavigate();
-
   const [source, setSource] = useState('github');
   const [form, setForm] = useState({
     name: '',
@@ -85,35 +82,71 @@ export default function Deploy() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [projectId, setProjectId] = useState('');
+  const [deploymentStatus, setDeploymentStatus] = useState('');
+  const [deploymentMessage, setDeploymentMessage] = useState('');
+
+  const pollProjectStatus = async (id) => {
+    try {
+      setDeploymentStatus('checking');
+      const response = await getProject(id);
+      const status = response?.data?.project?.status || 'unknown';
+      setDeploymentStatus(status);
+    } catch (err) {
+      setDeploymentStatus('error');
+      setDeploymentMessage('Unable to fetch status yet. Please refresh in a moment.');
+    }
+  };
+
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const data = new FormData();
-      data.append('name', form.name);
-      data.append('runtime', form.runtime);
-      data.append('source', source);
-      data.append('port', form.port);
+      const payload = {
+        name: form.name,
+        runtime: form.runtime,
+        source,
+        port: Number(form.port) || 3000,
+      };
 
       if (source === 'github') {
-        data.append('githubUrl', form.githubUrl);
-        data.append('branch', form.branch);
+        payload.githubUrl = form.githubUrl;
+        payload.branch = form.branch;
       } else {
         if (!file) {
           toast.error('Please upload a ZIP file');
           setLoading(false);
           return;
         }
-        data.append('zipFile', file);
+        payload.zipFileBase64 = await fileToBase64(file);
+        payload.zipFileName = file.name;
       }
 
-      await deployProject(data);
-      toast.success('Deployment started! 🚀');
-      navigate('/dashboard');
+      const response = await deployProject(payload);
+      const id = response?.data?.projectId || response?.data?.id;
+      setProjectId(id || '');
+      setDeploymentStatus('queued');
+      setDeploymentMessage('Deployment queued. Check status below.');
+      toast.success('Deployment queued! 🚀');
+
+      if (id) {
+        pollProjectStatus(id);
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Deployment failed');
+      setDeploymentMessage(err.response?.data?.message || 'Deployment failed.');
     } finally {
       setLoading(false);
     }
@@ -279,6 +312,15 @@ export default function Deploy() {
             )}
           </button>
         </form>
+
+        {projectId && (
+          <div className="deploy-result-card">
+            <h3>Deployment status</h3>
+            <p><strong>Project ID:</strong> {projectId}</p>
+            <p><strong>Status:</strong> {deploymentStatus}</p>
+            {deploymentMessage && <p>{deploymentMessage}</p>}
+          </div>
+        )}
       </div>
 
       {/* Info Panel */}
@@ -288,9 +330,9 @@ export default function Deploy() {
         <div className="steps">
           {[
             { n: 1, title: 'Submit Code', desc: 'Provide a GitHub URL or upload a ZIP file' },
-            { n: 2, title: 'Build', desc: 'CodeBuild builds a Docker image automatically' },
-            { n: 3, title: 'Deploy', desc: 'Container runs on EC2 with a unique port' },
-            { n: 4, title: 'Live', desc: 'Access your app via the generated live URL' },
+            { n: 2, title: 'Queue', desc: 'Lambda uploads source to S3 and sends a message to SQS' },
+            { n: 3, title: 'Build', desc: 'EC2 worker consumes the queue and builds your project' },
+            { n: 4, title: 'Live', desc: 'Access your app via the generated public URL' },
           ].map(({ n, title, desc }) => (
             <div key={n} className="step">
               <div className="step-num">{n}</div>
