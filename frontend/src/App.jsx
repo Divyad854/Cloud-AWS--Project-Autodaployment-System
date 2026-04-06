@@ -92,6 +92,7 @@ function AppRoutes() {
 
       {/* -------- ADMIN -------- */}
       <Route path="/admin" element={<AdminRoute><Layout admin /></AdminRoute>}>
+        <Route path="profile" element={<Profile />} />
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />

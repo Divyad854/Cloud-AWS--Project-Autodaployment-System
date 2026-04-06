@@ -8,9 +8,10 @@ AWS.config.update({
 });
 
 const s3 = new AWS.S3();
-const codebuild = new AWS.CodeBuild();
+const lambda = new AWS.Lambda();
+const sqs = new AWS.SQS();
 const ecr = new AWS.ECR();
 const cloudwatch = new AWS.CloudWatchLogs();
 const cognitoISP = new AWS.CognitoIdentityServiceProvider();
 
-module.exports = { s3, codebuild, ecr, cloudwatch, cognitoISP, AWS };
+module.exports = { s3, lambda, sqs, ecr, cloudwatch, cognitoISP, AWS };

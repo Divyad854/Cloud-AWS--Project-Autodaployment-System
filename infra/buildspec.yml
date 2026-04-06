@@ -8,21 +8,14 @@ phases:
       - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
       - echo Build started at $(date)
       - IMAGE_URI="$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG"
+      - echo Current directory: $(pwd)
+      - echo Listing files:
+      - ls -la
 
   build:
     commands:
       - echo Building Docker image...
-      - |
-        if [ "$RUNTIME" = "Node.js" ] || [ "$RUNTIME" = "Express" ]; then
-          DOCKERFILE="node"
-        elif [ "$RUNTIME" = "Python" ] || [ "$RUNTIME" = "Django" ] || [ "$RUNTIME" = "FastAPI" ]; then
-          DOCKERFILE="python"
-        elif [ "$RUNTIME" = "React" ] || [ "$RUNTIME" = "Next.js" ]; then
-          DOCKERFILE="react"
-        else
-          DOCKERFILE="node"
-        fi
-      - cp /buildfiles/Dockerfile.$DOCKERFILE ./Dockerfile
+      - if [ -f Dockerfile ]; then echo "Using Dockerfile from source"; else echo "Dockerfile not found in source"; exit 1; fi
       - docker build -t $IMAGE_URI --build-arg APP_PORT=$APP_PORT .
 
   post_build:

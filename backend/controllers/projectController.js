@@ -3,22 +3,65 @@ const crypto = require("crypto");
 const { uploadZipToS3 } = require("../aws/s3");
 const { v4: uuidv4 } = require('uuid');
 const { dynamo, TABLES } = require('../config/dynamo');
-const { s3, codebuild, cloudwatch } = require('../config/aws');
+const { s3, lambda, cloudwatch } = require('../config/aws');
 const logger = require('../utils/logger');
 const { auditLog } = require('../utils/audit');
 
-const getUserId = (req) => req.auth.sub;
-const getUserEmail = (req) => req.auth.email || req.auth['cognito:username'];
+const getUserId = (req) => {
+  const userId = req.user?.sub;
+  if (!userId) {
+    const err = new Error('Unauthorized');
+    err.statusCode = 401;
+    throw err;
+  }
+  return userId;
+};
+
+const findProjectById = async (projectId) => {
+  let result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: projectId } }).promise();
+  if (!result.Item) {
+    result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { projectid: projectId } }).promise();
+  }
+  return result.Item;
+};
+
+const resolveProjectKey = (project) => {
+  if (!project) return null;
+  if (project.id) return { id: project.id };
+  if (project.projectid) return { projectid: project.projectid };
+  return null;
+};
+
+const getUserEmail = (req) => req.user?.email || req.user?.['cognito:username'] || '';
 
 exports.listProjects = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.query({
-      TableName: TABLES.PROJECTS,
-      IndexName: 'userId-index',
-      KeyConditionExpression: 'userId = :uid',
-      ExpressionAttributeValues: { ':uid': userId },
-    }).promise();
+
+    let result;
+    try {
+      result = await dynamo.query({
+        TableName: TABLES.PROJECTS,
+        IndexName: 'userId-index',
+        KeyConditionExpression: 'userId = :uid',
+        ExpressionAttributeValues: { ':uid': userId },
+      }).promise();
+    } catch (queryErr) {
+      if (
+        queryErr.code === 'ValidationException' ||
+        queryErr.message?.includes('userId-index') ||
+        queryErr.message?.includes('index')
+      ) {
+        result = await dynamo.scan({
+          TableName: TABLES.PROJECTS,
+          FilterExpression: 'userId = :uid',
+          ExpressionAttributeValues: { ':uid': userId },
+        }).promise();
+      } else {
+        throw queryErr;
+      }
+    }
+
     res.json({ projects: result.Items || [] });
   } catch (err) { next(err); }
 };
@@ -26,9 +69,9 @@ exports.listProjects = async (req, res, next) => {
 exports.getProject = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Project not found' });
-    res.json({ project: result.Item });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Project not found' });
+    res.json({ project });
   } catch (err) { next(err); }
 };
 
@@ -67,6 +110,7 @@ exports.deployProject = async (req, res, next) => {
     // 🔥 SAVE PROJECT TO DYNAMODB
     const projectItem = {
       id: projectId,
+      projectid: projectId,
       userId,
       name,
       runtime,
@@ -85,23 +129,35 @@ exports.deployProject = async (req, res, next) => {
       Item: projectItem,
     }).promise();
 
-    // 🔥 TRIGGER CODEBUILD
-    const buildSource =
-      source === "github"
-        ? { type: "GITHUB", location: githubUrl }
-        : { type: "S3", location: sourceLocation };
+    // 🔥 TRIGGER DEPLOYMENT LAMBDA
+    const deployFunctionName = process.env.DEPLOY_LAMBDA_NAME;
+    if (!deployFunctionName) {
+      throw new Error('Missing DEPLOY_LAMBDA_NAME environment variable');
+    }
 
-    await codebuild.startBuild({
-      projectName: process.env.CODEBUILD_PROJECT,
-      sourceOverride: buildSource,
-      environmentVariablesOverride: [
-        { name: "PROJECT_ID", value: projectId },
-        { name: "IMAGE_TAG", value: imageTag },
-        { name: "RUNTIME", value: runtime },
-        { name: "APP_PORT", value: String(port || 3000) },
-        { name: "ECR_REGISTRY", value: process.env.ECR_REGISTRY },
-        { name: "ECR_REPO", value: process.env.ECR_REPOSITORY },
-      ],
+    const lambdaPayload = {
+      action: 'deploy',
+      projectId,
+      name,
+      runtime,
+      source,
+      sourceLocation,
+      githubUrl: githubUrl || null,
+      branch: branch || 'main',
+      port: port || 3000,
+      imageTag,
+      userId,
+      userEmail,
+      env: {
+        ECR_REGISTRY: process.env.ECR_REGISTRY,
+        ECR_REPO: process.env.ECR_REPOSITORY,
+      },
+    };
+
+    await lambda.invoke({
+      FunctionName: deployFunctionName,
+      InvocationType: 'Event',
+      Payload: JSON.stringify(lambdaPayload),
     }).promise();
 
     await auditLog(userId, "DEPLOY", projectId, { name });
@@ -120,30 +176,38 @@ exports.deployProject = async (req, res, next) => {
 exports.redeployProject = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    const project = result.Item;
-    const buildSource = project.source === 'github'
-      ? { type: 'GITHUB', location: project.githubUrl }
-      : { type: 'S3', location: project.sourceLocation };
 
-    await codebuild.startBuild({
-      projectName: process.env.CODEBUILD_PROJECT,
-      sourceOverride: buildSource,
-      environmentVariablesOverride: [
-        { name: 'PROJECT_ID', value: project.id },
-        { name: 'IMAGE_TAG', value: project.imageTag },
-        { name: 'RUNTIME', value: project.runtime },
-        { name: 'APP_PORT', value: project.port },
-        { name: 'ECR_REGISTRY', value: process.env.ECR_REGISTRY },
-        { name: 'ECR_REPO', value: process.env.ECR_REPOSITORY },
-      ],
+    const deployFunctionName = process.env.DEPLOY_LAMBDA_NAME;
+    if (!deployFunctionName) {
+      throw new Error('Missing DEPLOY_LAMBDA_NAME environment variable');
+    }
+
+    const lambdaPayload = {
+      action: 'redeploy',
+      projectId: project.id,
+      name: project.name,
+      runtime: project.runtime,
+      source: project.source,
+      sourceLocation: project.sourceLocation,
+      githubUrl: project.githubUrl,
+      branch: project.branch,
+      port: project.port,
+      imageTag: project.imageTag,
+      userId,
+    };
+
+    await lambda.invoke({
+      FunctionName: deployFunctionName,
+      InvocationType: 'Event',
+      Payload: JSON.stringify(lambdaPayload),
     }).promise();
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
-      Key: { id: req.params.id },
+      Key: resolveProjectKey(project),
       UpdateExpression: 'set #s = :s',
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: { ':s': 'building' },
@@ -216,16 +280,26 @@ exports.getBuildLogs = async (req, res, next) => {
     const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
     if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    const logGroupName = `/aws/codebuild/${process.env.CODEBUILD_PROJECT}`;
-    const logStreamName = `${req.params.id}/build`;
+    const logGroupName = process.env.LAMBDA_LOG_GROUP;
+    if (!logGroupName) {
+      return res.json({
+        logs: 'Lambda deployment logs are unavailable. Set LAMBDA_LOG_GROUP in the environment or check CloudWatch manually.',
+      });
+    }
+
+    const logStreamName = req.params.id;
     try {
       const logsResult = await cloudwatch.getLogEvents({
-        logGroupName, logStreamName, limit: 200, startFromHead: true,
+        logGroupName,
+        logStreamName,
+        limit: 200,
+        startFromHead: true,
       }).promise();
       const logs = logsResult.events?.map(e => e.message).join('') || 'No build logs yet.';
       res.json({ logs });
-    } catch {
-      res.json({ logs: 'Build logs not available yet. Deployment may still be in progress.' });
+    } catch (error) {
+      logger.warn('Lambda build log fetch failed', error.message || error);
+      res.json({ logs: 'Lambda deployment logs are not available yet or the log stream does not exist.' });
     }
   } catch (err) { next(err); }
 };
@@ -233,8 +307,8 @@ exports.getBuildLogs = async (req, res, next) => {
 exports.getRuntimeLogs = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
     const logGroupName = `/cloudlaunch/containers`;
     const logStreamName = req.params.id;

@@ -8,7 +8,8 @@ const app = express();
    MIDDLEWARE
 =========================== */
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 /* ===========================
    ROUTES
@@ -18,10 +19,12 @@ app.use(express.json());
 const userRoutes = require('./routes/users');
 const projectRoutes = require('./routes/projects');
 const adminRoutes = require('./routes/admin'); // 🔥 FIXED (admin.js)
+const deployRoutes = require('./routes/deploy');
 
 app.use('/api/users', userRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/deploy', deployRoutes);
 
 /* ===========================
    ERROR HANDLER
