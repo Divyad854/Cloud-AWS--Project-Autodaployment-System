@@ -65,7 +65,7 @@ async function writeLogs(projectId, logLine, type = 'build') {
     await dynamodb.put({
       TableName: LOGS_TABLE,
       Item: {
-        projectId,
+        projectid: projectId,
         timestamp,
         message: logLine,
         type,
