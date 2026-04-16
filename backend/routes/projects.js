@@ -3,12 +3,6 @@
 const express = require("express");
 const router = express.Router();
 
-const multer = require("multer");
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 100 * 1024 * 1024 }
-});
-
 const auth = require("../middleware/auth");
 const pc = require("../controllers/projectController");
 
@@ -16,7 +10,7 @@ const pc = require("../controllers/projectController");
 router.get("/", auth, pc.listProjects);
 router.get("/:id", auth, pc.getProject);
 
-router.post("/", auth, upload.single("zipFile"), pc.deployProject);
+router.post("/", auth, pc.deployProject);
 
 router.post("/:id/redeploy", auth, pc.redeployProject);
 router.post("/:id/stop", auth, pc.stopProject);

@@ -1,6 +1,14 @@
 const { cognitoISP, cloudwatch } = require('../config/aws');
 const { dynamo, TABLES } = require('../config/dynamo');
 
+const resolveRuntimeHost = (runtime) => {
+  const normalized = String(runtime || '').trim().toLowerCase();
+  if (normalized.includes('python')) return process.env.EC2_HOST_PYTHON || 'python-ec2';
+  if (normalized.includes('java')) return process.env.EC2_HOST_JAVA || 'javadeploy';
+  if (normalized.includes('node')) return process.env.EC2_HOST_NODE || 'deploy';
+  return process.env.EC2_HOST || 'deploy';
+};
+
 /* ==============================
    LIST USERS (HIDE ADMIN)
 ============================== */
@@ -131,10 +139,12 @@ exports.listAllProjects = async (req, res, next) => {
 exports.stopProject = async (req, res, next) => {
   try {
     const fetch = require('node-fetch');
+    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
+    const runtimeHost = result?.Item?.runtimeHost || resolveRuntimeHost(result?.Item?.runtime);
 
     try {
       await fetch(
-        `http://${process.env.EC2_HOST}:8080/container/stop/${req.params.id}`,
+        `http://${runtimeHost}:8080/container/stop/${req.params.id}`,
         { method: 'POST' }
       );
     } catch (err) {}
