@@ -52,7 +52,7 @@ exports.deploy = async (req, res, next) => {
     const runtimeHost = resolveRuntimeHost(runtime);
 
     const projectItem = {
-      id: projectId,
+      projectid: projectId,
       userId,
       name,
       runtime,
