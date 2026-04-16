@@ -81,9 +81,11 @@ exports.deploy = async (req, res, next) => {
     await sqs.sendMessage({
       QueueUrl: process.env.SQS_QUEUE_URL,
       MessageBody: JSON.stringify({
-        action: 'deploy',
         projectId,
-        project: projectItem,
+        repoUrl: sourceUrl,
+        runtime,
+        backendPort: portNumber,
+        env,
       }),
     }).promise();
 
