@@ -39,7 +39,7 @@ async function updateProjectStatus(projectId, status, details = {}) {
   try {
     await dynamodb.update({
       TableName: PROJECTS_TABLE,
-      Key: { projectid: projectId },
+      Key: { partitionid: projectId },
       UpdateExpression: 'SET #status = :status, updatedAt = :ts',
       ExpressionAttributeNames: {
         '#status': 'status',
