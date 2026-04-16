@@ -5,11 +5,7 @@ const { auditLog } = require('../utils/audit');
 const logger = require('../utils/logger');
 
 const resolveRuntimeHost = (runtime) => {
-  const normalized = String(runtime || '').trim().toLowerCase();
-  if (normalized.includes('python')) return process.env.EC2_HOST_PYTHON || 'python-ec2';
-  if (normalized.includes('java')) return process.env.EC2_HOST_JAVA || 'javadeploy';
-  if (normalized.includes('node')) return process.env.EC2_HOST_NODE || 'deploy';
-  return process.env.EC2_HOST || 'deploy';
+  return process.env.EC2_HOST || '13.234.213.244';
 };
 
 const getUserId = (req) => {
@@ -29,10 +25,25 @@ exports.deploy = async (req, res, next) => {
     const userId = getUserId(req);
     const userEmail = getUserEmail(req);
 
-    const { name, runtime, githubUrl, branch = 'main', port = 3000 } = req.body;
+    const {
+      name,
+      runtime,
+      githubUrl,
+      repoUrl,
+      branch = 'main',
+      port,
+      backendPort,
+      env = '',
+    } = req.body;
+    const sourceUrl = githubUrl || repoUrl;
+    const portNumber = backendPort ? Number(backendPort) : port ? Number(port) : 5000;
 
-    if (!name || !runtime || !githubUrl) {
+    if (!name || !runtime || !sourceUrl) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    if (port && (!Number.isInteger(portNumber) || portNumber <= 0)) {
+      return res.status(400).json({ message: 'Invalid port number' });
     }
 
     const projectId = uuidv4();
@@ -42,20 +53,19 @@ exports.deploy = async (req, res, next) => {
 
     const projectItem = {
       id: projectId,
-      projectid: projectId,
       userId,
       name,
       runtime,
       runtimeHost,
       source,
       sourceLocation,
-      githubUrl,
+      githubUrl: sourceUrl,
       branch,
-      port: Number(port) || 3000,
+      port: portNumber,
+      env,
       imageTag: projectId,
       status: 'queued',
       createdAt: new Date().toISOString(),
-      userId,
       userEmail,
     };
 
