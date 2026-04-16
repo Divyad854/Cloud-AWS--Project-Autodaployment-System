@@ -21,16 +21,16 @@ const getUserId = (req) => {
 };
 
 const findProjectById = async (projectId) => {
-  const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { projectid: projectId } }).promise();
+  const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { partitionid: projectId } }).promise();
   if (result.Item) return result.Item;
 
   const scanResult = await dynamo.scan({
     TableName: TABLES.PROJECTS,
-    FilterExpression: '#pid = :projectId OR #id = :projectId OR #partitionid = :projectId',
+    FilterExpression: '#pid = :projectId OR #id = :projectId OR #projectid = :projectId',
     ExpressionAttributeNames: {
-      '#pid': 'projectid',
+      '#pid': 'partitionid',
       '#id': 'id',
-      '#partitionid': 'partitionid',
+      '#projectid': 'projectid',
     },
     ExpressionAttributeValues: {
       ':projectId': projectId,
@@ -42,9 +42,9 @@ const findProjectById = async (projectId) => {
 
 const resolveProjectKey = (project) => {
   if (!project) return null;
-  if (project.projectid) return { projectid: project.projectid };
-  if (project.id) return { projectid: project.id };
-  if (project.partitionid) return { projectid: project.partitionid };
+  if (project.partitionid) return { partitionid: project.partitionid };
+  if (project.id) return { partitionid: project.id };
+  if (project.projectid) return { partitionid: project.projectid };
   return null;
 };
 
@@ -124,7 +124,7 @@ exports.deployProject = async (req, res, next) => {
 
     // 🔥 SAVE PROJECT TO DYNAMODB
     const projectItem = {
-      projectid: projectId,
+      partitionid: projectId,
       userId,
       name,
       runtime,
