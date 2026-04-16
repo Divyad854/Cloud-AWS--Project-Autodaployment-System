@@ -21,16 +21,35 @@ const getUserId = (req) => {
 };
 
 const findProjectById = async (projectId) => {
-  const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { partitionid: projectId } }).promise();
-  if (result.Item) return result.Item;
+  let result;
+  try {
+    result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { partitionid: projectId } }).promise();
+    if (result.Item) return result.Item;
+  } catch {
+    // Ignore and fall back to alternate key names.
+  }
+
+  try {
+    result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { projectid: projectId } }).promise();
+    if (result.Item) return result.Item;
+  } catch {
+    // Ignore and fall back to scan.
+  }
+
+  try {
+    result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: projectId } }).promise();
+    if (result.Item) return result.Item;
+  } catch {
+    // Ignore and fall back to scan.
+  }
 
   const scanResult = await dynamo.scan({
     TableName: TABLES.PROJECTS,
-    FilterExpression: '#pid = :projectId OR #id = :projectId OR #projectid = :projectId',
+    FilterExpression: '#pid = :projectId OR #id = :projectId OR #partitionid = :projectId',
     ExpressionAttributeNames: {
-      '#pid': 'partitionid',
+      '#pid': 'projectid',
       '#id': 'id',
-      '#projectid': 'projectid',
+      '#partitionid': 'partitionid',
     },
     ExpressionAttributeValues: {
       ':projectId': projectId,
@@ -43,8 +62,8 @@ const findProjectById = async (projectId) => {
 const resolveProjectKey = (project) => {
   if (!project) return null;
   if (project.partitionid) return { partitionid: project.partitionid };
-  if (project.id) return { partitionid: project.id };
-  if (project.projectid) return { partitionid: project.projectid };
+  if (project.projectid) return { projectid: project.projectid };
+  if (project.id) return { id: project.id };
   return null;
 };
 
@@ -125,6 +144,8 @@ exports.deployProject = async (req, res, next) => {
     // 🔥 SAVE PROJECT TO DYNAMODB
     const projectItem = {
       partitionid: projectId,
+      id: projectId,
+      projectid: projectId,
       userId,
       name,
       runtime,
@@ -138,7 +159,7 @@ exports.deployProject = async (req, res, next) => {
       imageTag: projectId,
       status: "queued",
       createdAt: new Date().toISOString(),
-    };
+    }; 
 
     await dynamo.put({
       TableName: TABLES.PROJECTS,

@@ -9,6 +9,14 @@ const resolveRuntimeHost = (runtime) => {
   return process.env.EC2_HOST || 'deploy';
 };
 
+const resolveProjectKey = (project) => {
+  if (!project) return null;
+  if (project.partitionid) return { partitionid: project.partitionid };
+  if (project.projectid) return { projectid: project.projectid };
+  if (project.id) return { id: project.id };
+  return null;
+};
+
 /* ==============================
    LIST USERS (HIDE ADMIN)
 ============================== */
@@ -139,7 +147,7 @@ exports.listAllProjects = async (req, res, next) => {
 exports.stopProject = async (req, res, next) => {
   try {
     const fetch = require('node-fetch');
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
+    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { partitionid: req.params.id } }).promise();
     const runtimeHost = result?.Item?.runtimeHost || resolveRuntimeHost(result?.Item?.runtime);
 
     try {
@@ -151,7 +159,7 @@ exports.stopProject = async (req, res, next) => {
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
-      Key: { id: req.params.id },
+      Key: { partitionid: req.params.id },
       UpdateExpression: 'set #s = :s',
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: { ':s': 'stopped' },
@@ -171,7 +179,7 @@ exports.deleteProject = async (req, res, next) => {
   try {
     await dynamo.delete({
       TableName: TABLES.PROJECTS,
-      Key: { id: req.params.id },
+      Key: { partitionid: req.params.id },
     }).promise();
 
     res.json({ message: 'Project deleted successfully' });

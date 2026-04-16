@@ -53,6 +53,8 @@ exports.deploy = async (req, res, next) => {
 
     const projectItem = {
       partitionid: projectId,
+      id: projectId,
+      projectid: projectId,
       userId,
       name,
       runtime,
@@ -67,7 +69,7 @@ exports.deploy = async (req, res, next) => {
       status: 'queued',
       createdAt: new Date().toISOString(),
       userEmail,
-    };
+    }; 
 
     await dynamo.put({
       TableName: TABLES.PROJECTS,
