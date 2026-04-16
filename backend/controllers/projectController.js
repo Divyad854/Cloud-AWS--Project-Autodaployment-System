@@ -7,11 +7,7 @@ const logger = require('../utils/logger');
 const { auditLog } = require('../utils/audit');
 
 const resolveRuntimeHost = (runtime) => {
-  const normalized = String(runtime || '').trim().toLowerCase();
-  if (normalized.includes('python')) return process.env.EC2_HOST_PYTHON || 'python-ec2';
-  if (normalized.includes('java')) return process.env.EC2_HOST_JAVA || 'javadeploy';
-  if (normalized.includes('node')) return process.env.EC2_HOST_NODE || 'deploy';
-  return process.env.EC2_HOST || 'deploy';
+  return process.env.EC2_HOST || '13.234.213.244';
 };
 
 const getUserId = (req) => {
@@ -25,17 +21,30 @@ const getUserId = (req) => {
 };
 
 const findProjectById = async (projectId) => {
-  let result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: projectId } }).promise();
-  if (!result.Item) {
-    result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { projectid: projectId } }).promise();
-  }
-  return result.Item;
+  const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: projectId } }).promise();
+  if (result.Item) return result.Item;
+
+  const scanResult = await dynamo.scan({
+    TableName: TABLES.PROJECTS,
+    FilterExpression: '#id = :projectId OR #pid = :projectId OR #partitionid = :projectId',
+    ExpressionAttributeNames: {
+      '#id': 'id',
+      '#pid': 'projectid',
+      '#partitionid': 'partitionid',
+    },
+    ExpressionAttributeValues: {
+      ':projectId': projectId,
+    },
+    Limit: 1,
+  }).promise();
+  return scanResult.Items?.[0];
 };
 
 const resolveProjectKey = (project) => {
   if (!project) return null;
   if (project.id) return { id: project.id };
-  if (project.projectid) return { projectid: project.projectid };
+  if (project.projectid) return { id: project.projectid };
+  if (project.partitionid) return { id: project.partitionid };
   return null;
 };
 
@@ -87,10 +96,25 @@ exports.deployProject = async (req, res, next) => {
     const userId = getUserId(req);
     const userEmail = getUserEmail(req);
 
-    const { name, runtime, githubUrl, branch, port } = req.body;
+    const {
+      name,
+      runtime,
+      githubUrl,
+      repoUrl,
+      branch = 'main',
+      port,
+      backendPort,
+      env = '',
+    } = req.body;
+    const sourceUrl = githubUrl || repoUrl;
+    const portNumber = backendPort ? Number(backendPort) : port ? Number(port) : 5000;
 
-    if (!name || !runtime || !githubUrl) {
+    if (!name || !runtime || !sourceUrl) {
       return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    if (port && (!Number.isInteger(portNumber) || portNumber <= 0)) {
+      return res.status(400).json({ message: 'Invalid port number' });
     }
 
     const projectId = uuidv4();
@@ -101,16 +125,16 @@ exports.deployProject = async (req, res, next) => {
     // 🔥 SAVE PROJECT TO DYNAMODB
     const projectItem = {
       id: projectId,
-      projectid: projectId,
       userId,
       name,
       runtime,
       runtimeHost,
       source,
       sourceLocation,
-      githubUrl,
-      branch: branch || "main",
-      port: port || 3000,
+      githubUrl: sourceUrl,
+      branch,
+      port: portNumber,
+      env,
       imageTag: projectId,
       status: "queued",
       createdAt: new Date().toISOString(),
@@ -184,16 +208,16 @@ exports.redeployProject = async (req, res, next) => {
 exports.stopProject = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
     // Call EC2 runtime manager via HTTP
-    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    const runtimeHost = project.runtimeHost || resolveRuntimeHost(project.runtime);
     await callRuntimeManager('stop', req.params.id, runtimeHost);
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
-      Key: { id: req.params.id },
+      Key: resolveProjectKey(project),
       UpdateExpression: 'set #s = :s',
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: { ':s': 'stopped' },
@@ -207,15 +231,15 @@ exports.stopProject = async (req, res, next) => {
 exports.restartProject = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    const runtimeHost = project.runtimeHost || resolveRuntimeHost(project.runtime);
     await callRuntimeManager('restart', req.params.id, runtimeHost);
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
-      Key: { id: req.params.id },
+      Key: resolveProjectKey(project),
       UpdateExpression: 'set #s = :s',
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: { ':s': 'running' },
@@ -229,13 +253,13 @@ exports.restartProject = async (req, res, next) => {
 exports.deleteProject = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    const runtimeHost = project.runtimeHost || resolveRuntimeHost(project.runtime);
     try { await callRuntimeManager('stop', req.params.id, runtimeHost); } catch {}
-    await dynamo.delete({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    await auditLog(userId, 'DELETE', req.params.id, { name: result.Item.name });
+    await dynamo.delete({ TableName: TABLES.PROJECTS, Key: resolveProjectKey(project) }).promise();
+    await auditLog(userId, 'DELETE', req.params.id, { name: project.name });
     res.json({ message: 'Project deleted' });
   } catch (err) { next(err); }
 };
@@ -243,8 +267,8 @@ exports.deleteProject = async (req, res, next) => {
 exports.getBuildLogs = async (req, res, next) => {
   try {
     const userId = getUserId(req);
-    const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
-    if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
+    const project = await findProjectById(req.params.id);
+    if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
     const logGroupName = process.env.BUILD_LOG_GROUP || '/cloudlaunch/build';
     if (!logGroupName) {
