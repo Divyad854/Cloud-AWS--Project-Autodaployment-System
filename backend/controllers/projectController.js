@@ -152,9 +152,11 @@ exports.deployProject = async (req, res, next) => {
     await sqs.sendMessage({
       QueueUrl: process.env.SQS_QUEUE_URL,
       MessageBody: JSON.stringify({
-        action: 'deploy',
         projectId,
-        project: projectItem,
+        repoUrl: sourceUrl,
+        runtime,
+        backendPort: portNumber,
+        env,
       }),
     }).promise();
 
@@ -186,9 +188,11 @@ exports.redeployProject = async (req, res, next) => {
     await sqs.sendMessage({
       QueueUrl: process.env.SQS_QUEUE_URL,
       MessageBody: JSON.stringify({
-        action: 'redeploy',
-        projectId: project.id,
-        project,
+        projectId: project.projectid,
+        repoUrl: project.githubUrl,
+        runtime: project.runtime,
+        backendPort: project.port,
+        env: project.env,
       }),
     }).promise();
 
