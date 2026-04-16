@@ -23,4 +23,12 @@ aws dynamodb create-table \
   --key-schema AttributeName=id,KeyType=HASH \
   --billing-mode PAY_PER_REQUEST 2>/dev/null && echo "✓ audit table created" || echo "~ audit table may already exist"
 
+# Logs table
+aws dynamodb create-table \
+  --region $REGION \
+  --table-name cloudlaunch-logs \
+  --attribute-definitions AttributeName=projectid,AttributeType=S AttributeName=timestamp,AttributeType=S \
+  --key-schema AttributeName=projectid,KeyType=HASH AttributeName=timestamp,KeyType=RANGE \
+  --billing-mode PAY_PER_REQUEST 2>/dev/null && echo "✓ logs table created" || echo "~ logs table may already exist"
+
 echo "Done!"
