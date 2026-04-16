@@ -1,11 +1,18 @@
 // controllers/projectController.js
 const crypto = require("crypto");
-const { uploadZipToS3 } = require("../aws/s3");
 const { v4: uuidv4 } = require('uuid');
 const { dynamo, TABLES } = require('../config/dynamo');
-const { s3, lambda, cloudwatch } = require('../config/aws');
+const { s3, sqs, cloudwatch } = require('../config/aws');
 const logger = require('../utils/logger');
 const { auditLog } = require('../utils/audit');
+
+const resolveRuntimeHost = (runtime) => {
+  const normalized = String(runtime || '').trim().toLowerCase();
+  if (normalized.includes('python')) return process.env.EC2_HOST_PYTHON || 'python-ec2';
+  if (normalized.includes('java')) return process.env.EC2_HOST_JAVA || 'javadeploy';
+  if (normalized.includes('node')) return process.env.EC2_HOST_NODE || 'deploy';
+  return process.env.EC2_HOST || 'deploy';
+};
 
 const getUserId = (req) => {
   const userId = req.user?.sub;
@@ -80,32 +87,16 @@ exports.deployProject = async (req, res, next) => {
     const userId = getUserId(req);
     const userEmail = getUserEmail(req);
 
-    const { name, runtime, source, port, githubUrl, branch } = req.body;
+    const { name, runtime, githubUrl, branch, port } = req.body;
 
-    if (!name || !runtime || !source) {
+    if (!name || !runtime || !githubUrl) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
     const projectId = uuidv4();
-    const imageTag = projectId;
-    let sourceLocation = null;
-
-    // 🔥 HANDLE ZIP SOURCE
-    if (source === "zip") {
-      if (!req.file) {
-        return res.status(400).json({ message: "ZIP file required" });
-      }
-
-      sourceLocation = await uploadZipToS3(req.file.buffer, projectId);
-    }
-
-    // 🔥 HANDLE GITHUB SOURCE
-    if (source === "github") {
-      if (!githubUrl) {
-        return res.status(400).json({ message: "GitHub URL required" });
-      }
-      sourceLocation = githubUrl;
-    }
+    const source = 'github';
+    const sourceLocation = githubUrl;
+    const runtimeHost = resolveRuntimeHost(runtime);
 
     // 🔥 SAVE PROJECT TO DYNAMODB
     const projectItem = {
@@ -114,13 +105,14 @@ exports.deployProject = async (req, res, next) => {
       userId,
       name,
       runtime,
+      runtimeHost,
       source,
       sourceLocation,
-      githubUrl: githubUrl || null,
+      githubUrl,
       branch: branch || "main",
       port: port || 3000,
-      imageTag,
-      status: "building",
+      imageTag: projectId,
+      status: "queued",
       createdAt: new Date().toISOString(),
     };
 
@@ -129,42 +121,26 @@ exports.deployProject = async (req, res, next) => {
       Item: projectItem,
     }).promise();
 
-    // 🔥 TRIGGER DEPLOYMENT LAMBDA
-    const deployFunctionName = process.env.DEPLOY_LAMBDA_NAME;
-    if (!deployFunctionName) {
-      throw new Error('Missing DEPLOY_LAMBDA_NAME environment variable');
+    if (!process.env.SQS_QUEUE_URL) {
+      throw new Error('SQS_QUEUE_URL is not configured');
     }
 
-    const lambdaPayload = {
-      action: 'deploy',
-      projectId,
-      name,
-      runtime,
-      source,
-      sourceLocation,
-      githubUrl: githubUrl || null,
-      branch: branch || 'main',
-      port: port || 3000,
-      imageTag,
-      userId,
-      userEmail,
-      env: {
-        ECR_REGISTRY: process.env.ECR_REGISTRY,
-        ECR_REPO: process.env.ECR_REPOSITORY,
-      },
-    };
-
-    await lambda.invoke({
-      FunctionName: deployFunctionName,
-      InvocationType: 'Event',
-      Payload: JSON.stringify(lambdaPayload),
+    await sqs.sendMessage({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        action: 'deploy',
+        projectId,
+        project: projectItem,
+      }),
     }).promise();
 
-    await auditLog(userId, "DEPLOY", projectId, { name });
+    await auditLog(userId, "DEPLOY", projectId, { name, runtime, githubUrl });
 
     res.json({
-      message: "Deployment started",
+      message: "Deployment queued",
       projectId,
+      runtimeHost,
+      deployUrl: `http://${runtimeHost}:${projectItem.port}`,
     });
 
   } catch (err) {
@@ -179,30 +155,17 @@ exports.redeployProject = async (req, res, next) => {
     const project = await findProjectById(req.params.id);
     if (!project || project.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-
-    const deployFunctionName = process.env.DEPLOY_LAMBDA_NAME;
-    if (!deployFunctionName) {
-      throw new Error('Missing DEPLOY_LAMBDA_NAME environment variable');
+    if (!process.env.SQS_QUEUE_URL) {
+      throw new Error('SQS_QUEUE_URL is not configured');
     }
 
-    const lambdaPayload = {
-      action: 'redeploy',
-      projectId: project.id,
-      name: project.name,
-      runtime: project.runtime,
-      source: project.source,
-      sourceLocation: project.sourceLocation,
-      githubUrl: project.githubUrl,
-      branch: project.branch,
-      port: project.port,
-      imageTag: project.imageTag,
-      userId,
-    };
-
-    await lambda.invoke({
-      FunctionName: deployFunctionName,
-      InvocationType: 'Event',
-      Payload: JSON.stringify(lambdaPayload),
+    await sqs.sendMessage({
+      QueueUrl: process.env.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        action: 'redeploy',
+        projectId: project.id,
+        project,
+      }),
     }).promise();
 
     await dynamo.update({
@@ -214,7 +177,7 @@ exports.redeployProject = async (req, res, next) => {
     }).promise();
 
     await auditLog(userId, 'REDEPLOY', req.params.id, {});
-    res.json({ message: 'Redeployment started' });
+    res.json({ message: 'Redeployment queued' });
   } catch (err) { next(err); }
 };
 
@@ -225,7 +188,8 @@ exports.stopProject = async (req, res, next) => {
     if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
     // Call EC2 runtime manager via HTTP
-    await callRuntimeManager('stop', req.params.id);
+    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    await callRuntimeManager('stop', req.params.id, runtimeHost);
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
@@ -246,7 +210,8 @@ exports.restartProject = async (req, res, next) => {
     const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
     if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    await callRuntimeManager('restart', req.params.id);
+    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    await callRuntimeManager('restart', req.params.id, runtimeHost);
 
     await dynamo.update({
       TableName: TABLES.PROJECTS,
@@ -267,7 +232,8 @@ exports.deleteProject = async (req, res, next) => {
     const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
     if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    try { await callRuntimeManager('stop', req.params.id); } catch {}
+    const runtimeHost = result.Item.runtimeHost || resolveRuntimeHost(result.Item.runtime);
+    try { await callRuntimeManager('stop', req.params.id, runtimeHost); } catch {}
     await dynamo.delete({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
     await auditLog(userId, 'DELETE', req.params.id, { name: result.Item.name });
     res.json({ message: 'Project deleted' });
@@ -280,10 +246,10 @@ exports.getBuildLogs = async (req, res, next) => {
     const result = await dynamo.get({ TableName: TABLES.PROJECTS, Key: { id: req.params.id } }).promise();
     if (!result.Item || result.Item.userId !== userId) return res.status(404).json({ message: 'Not found' });
 
-    const logGroupName = process.env.LAMBDA_LOG_GROUP;
+    const logGroupName = process.env.BUILD_LOG_GROUP || '/cloudlaunch/build';
     if (!logGroupName) {
       return res.json({
-        logs: 'Lambda deployment logs are unavailable. Set LAMBDA_LOG_GROUP in the environment or check CloudWatch manually.',
+        logs: 'Build logs are unavailable. Set BUILD_LOG_GROUP in the environment or check CloudWatch manually.',
       });
     }
 
@@ -298,8 +264,8 @@ exports.getBuildLogs = async (req, res, next) => {
       const logs = logsResult.events?.map(e => e.message).join('') || 'No build logs yet.';
       res.json({ logs });
     } catch (error) {
-      logger.warn('Lambda build log fetch failed', error.message || error);
-      res.json({ logs: 'Lambda deployment logs are not available yet or the log stream does not exist.' });
+      logger.warn('Build log fetch failed', error.message || error);
+      res.json({ logs: 'Build logs are not available yet or the log stream does not exist.' });
     }
   } catch (err) { next(err); }
 };
@@ -324,9 +290,10 @@ exports.getRuntimeLogs = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-async function callRuntimeManager(action, projectId) {
+async function callRuntimeManager(action, projectId, runtimeHost) {
   const fetch = require('node-fetch');
-  const url = `http://${process.env.EC2_HOST}:8080/container/${action}/${projectId}`;
+  const host = runtimeHost || process.env.EC2_HOST || 'deploy';
+  const url = `http://${host}:8080/container/${action}/${projectId}`;
   const response = await fetch(url, { method: 'POST', timeout: 10000 });
   if (!response.ok) throw new Error(`Runtime manager error: ${response.status}`);
   return response.json();
