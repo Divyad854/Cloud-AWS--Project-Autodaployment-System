@@ -1,5 +1,289 @@
-/* src/styles/dashboard.css */
-.dashboard { max-width: 1100px; }
-.dashboard-welcome { margin-bottom: 24px; }
-.dashboard-welcome h2 { font-size: 22px; font-weight: 700; }
-.dashboard-welcome p { color: var(--muted); margin-top: 4px; }
+/* ================= BASE ================= */
+
+.dashboard {
+  max-width: 1100px;
+}
+
+/* ================= HEADER ================= */
+
+.dashboard-welcome {
+  margin-bottom: 20px;
+}
+
+.dashboard-welcome h2 {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dashboard-welcome p {
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+/* ================= STATS ================= */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  background: linear-gradient(145deg, #0f172a, #020617);
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+  transition: 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+}
+
+.stat-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.stat-top svg {
+  width: 18px;
+  height: 18px;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.stat-label {
+  margin-top: 6px;
+  font-size: 3px;
+  color: #527ebc;
+}
+
+/* ================= SECTION ================= */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+/* ================= TABLE ================= */
+
+.projects-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* HEADER */
+.projects-table thead {
+  background: #020617;
+}
+
+.projects-table thead th {
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 16px;
+  border-bottom: 1px solid #1e293b;
+}
+
+/* COLUMN WIDTHS */
+.projects-table th:nth-child(1),
+.projects-table td:nth-child(1) { width: 22%; }
+
+.projects-table th:nth-child(2),
+.projects-table td:nth-child(2) { width: 14%; }
+
+.projects-table th:nth-child(3),
+.projects-table td:nth-child(3) { width: 12%; }
+
+.projects-table th:nth-child(4),
+.projects-table td:nth-child(4) { width: 16%; }
+
+.projects-table th:nth-child(5),
+.projects-table td:nth-child(5) { width: 14%; }
+
+.projects-table th:nth-child(6),
+.projects-table td:nth-child(6) { width: 22%; }
+
+/* ROWS */
+.projects-table tbody tr {
+  background: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  transition: 0.2s ease;
+}
+
+.projects-table tbody tr:hover {
+  background: #1e293b;
+}
+
+/* CELLS */
+.projects-table td {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+
+/* ================= PROJECT NAME ================= */
+
+.project-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: normal; /* FIX CUT TEXT */
+}
+
+/* ================= STATUS ================= */
+
+.status-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-running {
+  background: rgba(16,185,129,0.15);
+  color: #10b981;
+}
+
+.status-queued,
+.status-building {
+  background: rgba(245,158,11,0.15);
+  color: #f59e0b;
+}
+
+.status-failed {
+  background: rgba(239,68,68,0.15);
+  color: #ef4444;
+}
+
+/* ================= LIVE URL ================= */
+
+.live-url {
+  color: #6366f1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+
+.live-url:hover {
+  text-decoration: underline;
+}
+
+/* ================= ACTION BUTTONS ================= */
+
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #1e293b;
+  border: 1px solid #2a2f45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+}
+
+.icon-action:hover {
+  background: #2a3050;
+  transform: scale(1.05);
+}
+
+.icon-action.success svg { color: #10b981; }
+.icon-action.warning svg { color: #f59e0b; }
+.icon-action.danger svg { color: #ef4444; }
+
+/* ================= MISC ================= */
+
+.muted {
+  color: #64748b;
+}
+
+.loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #1e293b;
+  border-top: 3px solid #6366f1;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.deploy-steps {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+/* LINE BETWEEN STEPS */
+.deploy-steps::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: #1e293b;
+  top: 18px;
+  left: 0;
+  z-index: 0;
+}
+
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  color: #64748b;
+  z-index: 1;
+}
+
+/* STEP CIRCLE */
+.step span {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+/* ACTIVE STEP */
+.step.active span {
+  background: #6366f1;
+  color: white;
+}
+
+/* TEXT */
+.step p {
+  margin: 0;
+  text-align: center;
+}

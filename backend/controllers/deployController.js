@@ -1,13 +1,22 @@
-const { v4: uuidv4 } = require('uuid');
 const { dynamo, TABLES } = require('../config/dynamo');
 const { sqs } = require('../config/aws');
-const { auditLog } = require('../utils/audit');
+const { SendMessageCommand } = require('@aws-sdk/client-sqs');
 const logger = require('../utils/logger');
 
-const resolveRuntimeHost = (runtime) => {
-  return process.env.EC2_HOST || '13.234.213.244';
+// ✅ Normalize runtime
+const normalizeRuntime = (runtime) => {
+  if (!runtime) return null;
+
+  const r = String(runtime).toLowerCase();
+
+  if (r.includes('node')) return 'node';
+  if (r.includes('python')) return 'python';
+  if (r.includes('java')) return 'java';
+
+  return null;
 };
 
+// ✅ Get user
 const getUserId = (req) => {
   const userId = req.user?.sub;
   if (!userId) {
@@ -18,12 +27,11 @@ const getUserId = (req) => {
   return userId;
 };
 
-const getUserEmail = (req) => req.user?.email || req.user?.['cognito:username'] || null;
-
-exports.deploy = async (req, res, next) => {
+exports.deploy = async (req, res) => {
   try {
+    console.log("🔥 DEPLOY API CALLED");
+
     const userId = getUserId(req);
-    const userEmail = getUserEmail(req);
 
     const {
       name,
@@ -35,73 +43,163 @@ exports.deploy = async (req, res, next) => {
       backendPort,
       env = '',
     } = req.body;
+
     const sourceUrl = githubUrl || repoUrl;
-    const portNumber = backendPort ? Number(backendPort) : port ? Number(port) : 5000;
 
+    const portNumber = backendPort
+      ? Number(backendPort)
+      : port
+      ? Number(port)
+      : 5000;
+
+    // ✅ Validation
     if (!name || !runtime || !sourceUrl) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({
+        message: 'Missing required fields',
+      });
     }
 
-    if (port && (!Number.isInteger(portNumber) || portNumber <= 0)) {
-      return res.status(400).json({ message: 'Invalid port number' });
+    if (!Number.isInteger(portNumber) || portNumber <= 0) {
+      return res.status(400).json({
+        message: 'Invalid port number',
+      });
     }
 
-    const projectId = uuidv4();
-    const source = 'github';
-    const sourceLocation = githubUrl;
-    const runtimeHost = resolveRuntimeHost(runtime);
+    // ✅ Normalize runtime
+    const normalizedRuntime = normalizeRuntime(runtime);
+    if (!normalizedRuntime) {
+      return res.status(400).json({
+        message: 'Unsupported runtime',
+      });
+    }
 
+    // ✅ Generate projectId
+    const projectId = name.toLowerCase().replace(/\s+/g, '');
+
+    // =========================
+    // 🔥 PREVENT DUPLICATE DEPLOY
+    // =========================
+  const userIdStr = String(userId);
+
+const existing = await dynamo.get({
+  TableName: TABLES.PROJECTS,
+  Key: {
+    projectid: projectId,
+    partitionid: userIdStr,
+  },
+}).promise();
+
+    if (existing.Item) {
+      return res.status(400).json({
+        message: "Deployment already triggered for this project",
+      });
+    }
+
+    // =========================
+    // ✅ SAVE TO DYNAMODB
+    // =========================
     const projectItem = {
-      partitionid: projectId,
-      id: projectId,
       projectid: projectId,
-      userId,
+       partitionid: String(userId), 
       name,
-      runtime,
-      runtimeHost,
-      source,
-      sourceLocation,
+      runtime: normalizedRuntime,
+      source: 'github',
       githubUrl: sourceUrl,
       branch,
       port: portNumber,
       env,
-      imageTag: projectId,
       status: 'queued',
+        // 🔥 ADD THIS
+  deployUrl: "",
       createdAt: new Date().toISOString(),
-      userEmail,
-    }; 
+    };
+
+    console.log("========== DYNAMO ITEM ==========");
+    console.log(JSON.stringify(projectItem, null, 2));
 
     await dynamo.put({
       TableName: TABLES.PROJECTS,
       Item: projectItem,
     }).promise();
 
+    console.log("✅ DynamoDB SAVE SUCCESS");
+
+    // =========================
+    // ✅ SEND TO SQS (ONLY ONCE)
+    // =========================
+    const sqsMessage = {
+      projectId,
+      userId,
+      repoUrl: sourceUrl,
+      runtime: normalizedRuntime,
+      backendPort: portNumber,
+      env,
+    };
+
+    console.log("========== SQS MESSAGE ==========");
+    console.log(JSON.stringify(sqsMessage, null, 2));
+
     if (!process.env.SQS_QUEUE_URL) {
       throw new Error('SQS_QUEUE_URL is not configured');
     }
 
-    await sqs.sendMessage({
-      QueueUrl: process.env.SQS_QUEUE_URL,
-      MessageBody: JSON.stringify({
-        projectId,
-        repoUrl: sourceUrl,
-        runtime,
-        backendPort: portNumber,
-        env,
-      }),
-    }).promise();
+    const response = await sqs.send(
+      new SendMessageCommand({
+        QueueUrl: process.env.SQS_QUEUE_URL,
+        MessageBody: JSON.stringify(sqsMessage),
 
-    await auditLog(userId, 'DEPLOY', projectId, { name, runtime, githubUrl });
+        // 🔥 OPTIONAL (FIFO ONLY)
+        // MessageGroupId: userId,
+        // MessageDeduplicationId: projectId,
+      })
+    );
 
-    const deployUrl = `http://${runtimeHost}:${projectItem.port}`;
+    console.log("✅ SQS SUCCESS:", response.MessageId);
 
     res.json({
-      message: 'Deployment queued',
+      message: "Deployment queued",
       projectId,
-      deployUrl,
+      messageId: response.MessageId,
     });
+
+  } catch (error) {
+    console.error("❌ DEPLOY ERROR:", error);
+    logger.error("DEPLOY ERROR:", error);
+
+    res.status(error.statusCode || 500).json({
+      message: "Deployment failed",
+      error: error.message,
+    });
+  }
+};
+
+// =========================
+// ✅ GET USER PROJECTS
+// =========================
+exports.getUserProjects = async (req, res) => {
+  try {
+    const userId = req.user.sub;
+     
+    console.log("USER ID FROM TOKEN:", userId);
+   const userIdStr = String(userId);
+
+const result = await dynamo.scan({
+  TableName: TABLES.PROJECTS,
+  FilterExpression: "#pid = :uid",
+  ExpressionAttributeNames: {
+    "#pid": "partitionid", // 🔥 IMPORTANT FIX
+  },
+  ExpressionAttributeValues: {
+    ":uid": userIdStr,
+  },
+}).promise();
+
+    res.json({
+      projects: result.Items || [],
+    });
+
   } catch (err) {
-    logger.error('DEPLOY CONTROLLER ERROR:', err);
-    next(err);
+    console.error(err);
+    res.status(500).json({ message: "Failed to fetch projects" });
   }
 };

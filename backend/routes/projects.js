@@ -1,24 +1,29 @@
-// routes/projects.js
-
 const express = require("express");
 const router = express.Router();
 
 const auth = require("../middleware/auth");
-const pc = require("../controllers/projectController");
 
-// 🔥 PROTECTED ROUTES
-router.get("/", auth, pc.listProjects);
-router.get("/:id", auth, pc.getProject);
+// ✅ IMPORT BOTH
+const deployController = require("../controllers/deployController");
+const projectController = require("../controllers/projectController");
 
-router.post("/", auth, pc.deployProject);
+// ✅ PROJECT LIST
+router.get("/", auth, deployController.getUserProjects); 
+// OR use projectController.listProjects if fixed
 
-router.post("/:id/redeploy", auth, pc.redeployProject);
-router.post("/:id/stop", auth, pc.stopProject);
-router.post("/:id/restart", auth, pc.restartProject);
+router.get("/:id", auth, projectController.getProject);
 
-router.delete("/:id", auth, pc.deleteProject);
+// ✅ DEPLOY
+router.post("/", auth, deployController.deploy);
 
-router.get("/:id/logs/build", auth, pc.getBuildLogs);
-router.get("/:id/logs/runtime", auth, pc.getRuntimeLogs);
+// ✅ ACTIONS
+router.post("/:id/redeploy", auth, projectController.redeployProject);
+router.post("/:id/stop", auth, projectController.stopProject);
 
+
+router.delete("/:id", auth, projectController.deleteProject);
+
+router.get("/:id/logs/build", auth, projectController.getBuildLogs);
+router.get("/:id/logs/runtime", auth, projectController.getRuntimeLogs);
+router.post('/:id/restart', auth, projectController.restartProject);
 module.exports = router;

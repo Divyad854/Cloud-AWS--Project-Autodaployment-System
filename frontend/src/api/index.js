@@ -38,7 +38,8 @@ export const getProject = (id) => api.get(`/projects/${id}`);
 export const deployProject = (data) => api.post('/deploy', data);
 export const redeployProject = (id) => api.post(`/projects/${id}/redeploy`);
 export const stopProject = (id) => api.post(`/projects/${id}/stop`);
-export const restartProject = (id) => api.post(`/projects/${id}/restart`);
+export const restartProject = (id) =>
+  api.post(`/projects/${id}/restart`);
 export const deleteProject = (id) => api.delete(`/projects/${id}`);
 
 // Logs

@@ -7,8 +7,9 @@ import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import { Rocket, Square, RefreshCw, Trash2, ExternalLink, ScrollText, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import '../styles/dashboard.css';
 
+import '../styles/dashboard.css';
+import { Folder, Activity,Loader, Hammer, XCircle } from "lucide-react";
 export default function Dashboard() {
 
   const { userAttributes, isAdmin } = useAuth();
@@ -29,12 +30,21 @@ export default function Dashboard() {
 
       setProjects(data);
 
-      setStats({
-        total: data.length,
-        running: data.filter(p => p.status === 'running').length,
-        failed: data.filter(p => p.status === 'failed').length,
-        building: data.filter(p => p.status === 'building').length,
-      });
+    setStats({
+  total: data.length,
+
+  // ✅ running = deployed (has URL OR status running)
+  running: data.filter(
+    p => p.status === 'running' || (p.deployUrl && p.deployUrl !== "")
+  ).length,
+
+  // ✅ building = queued
+  building: data.filter(
+    p => p.status === 'queued' || p.status === 'building'
+  ).length,
+
+  failed: data.filter(p => p.status === 'failed').length,
+});
 
     } catch {
       toast.error('Failed to load projects');
@@ -89,25 +99,34 @@ export default function Dashboard() {
         <p>Here's an overview of your deployments</p>
       </div>
 
-      <div className="stats-grid">
-        {[
-          { label: 'Total Projects', value: stats.total, color: '#6366f1' },
-          { label: 'Running', value: stats.running, color: '#10b981' },
-          { label: 'Building', value: stats.building, color: '#f59e0b' },
-          { label: 'Failed', value: stats.failed, color: '#ef4444' },
-        ].map(({ label, value, color }) => (
-          <div
-            key={label}
-            className="stat-card"
-            style={{ borderTop: `3px solid ${color}` }}
-          >
-            <span className="stat-value" style={{ color }}>
-              {value}
-            </span>
-            <span className="stat-label">{label}</span>
-          </div>
-        ))}
+
+
+<div className="stats-grid">
+  {[
+    { label: 'Total Projects', value: stats.total, color: '#6366f1', icon: Folder },
+    { label: 'Running', value: stats.running, color: '#10b981', icon: Activity },
+    { label: 'Building', value: stats.building, color: '#f59e0b', icon: Loader, spin: true },
+    { label: 'Failed', value: stats.failed, color: '#ef4444', icon: XCircle },
+  ].map(({ label, value, color, icon: Icon, spin }) => (
+    <div key={label} className="stat-card">
+
+      {/* 🔥 ICON + NUMBER */}
+      <div className="stat-top">
+        <Icon
+          size={22}
+          style={{ color }}
+          className={spin ? "animate-spin" : ""}
+        />
+        <span className="stat-value" style={{ color }}>
+          {value}
+        </span>
       </div>
+
+      {/* 🔥 LABEL */}
+      <div className="stat-label">{label}</div>
+    </div>
+  ))}
+</div>
 
       <div className="section-header">
         <h3>Your Projects</h3>
@@ -152,95 +171,99 @@ export default function Dashboard() {
               </tr>
             </thead>
 
-            <tbody>
+         <tbody>
 
-              {projects.map(project => (
+  {projects.map(project => (
 
-                <tr key={project.id}>
+    <tr key={project.projectid}>
 
-                  <td className="project-name">
-                    <Rocket size={16} />
-                    {project.name}
-                  </td>
+      <td className="project-name">
+    <Rocket size={16} style={{ color: "#6366f1" }} />
+        {project.name}
+      </td>
 
-                  <td>
-                    <StatusBadge status={project.status} />
-                  </td>
+      <td>
+        <StatusBadge status={project.status} />
+      </td>
 
-                  <td>{project.runtime}</td>
+      <td>{project.runtime}</td>
+<td>
+  {project.deployUrl &&
+   project.deployUrl !== "null" &&
+   project.deployUrl !== "undefined" &&
+   project.deployUrl.trim() !== "" ? (
 
-                  <td>
-                    {project.liveUrl ? (
-                      <a
-                        href={project.liveUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="live-url"
-                      >
-                        <ExternalLink size={14} /> Open
-                      </a>
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
-                  </td>
+    <a
+      href={
+        project.deployUrl.startsWith("http")
+          ? project.deployUrl
+          : `http://${project.deployUrl}`
+      }
+      target="_blank"
+      rel="noreferrer"
+      className="live-url"
+    >
+      <ExternalLink size={14} /> Open
+    </a>
 
-                  <td className="muted">
-                    {project.deployedAt
-                      ? new Date(project.deployedAt).toLocaleDateString()
-                      : '—'}
-                  </td>
+  ) : (
+    <span className="muted">—</span>
+  )}
+</td>
 
-                  <td>
+      <td className="muted">
+        {project.createdAt
+          ? new Date(project.createdAt).toLocaleDateString()
+          : '—'}
+      </td>
 
-                    <div className="action-buttons">
+      <td>
 
-                      <Link
-                        to={`/logs/${project.id}`}
-                        className="icon-action"
-                        title="Logs"
-                      >
-                        <ScrollText size={15} />
-                      </Link>
+        <div className="action-buttons">
 
-                      {project.status === 'running' ? (
+          <Link
+            to={`/logs/${project.projectid}`}
+            className="icon-action"
+          >
+            <ScrollText size={15} />
+          </Link>
 
-                        <button
-                          className="icon-action warning"
-                          title="Stop"
-                          onClick={() => handleStop(project.id)}
-                        >
-                          <Square size={15} />
-                        </button>
+          {project.status === 'running' ? (
 
-                      ) : (
+            <button
+              className="icon-action warning"
+              onClick={() => handleStop(project.projectid)}
+            >
+              <Activity  size={15} />
+            </button>
 
-                        <button
-                          className="icon-action success"
-                          title="Restart"
-                          onClick={() => handleRestart(project.id)}
-                        >
-                          <RefreshCw size={15} />
-                        </button>
+          ) : (
 
-                      )}
+            <button
+              className="icon-action success"
+              onClick={() => handleRestart(project.projectid)}
+            >
+              <RefreshCw size={15} />
+            </button>
 
-                      <button
-                        className="icon-action danger"
-                        title="Delete"
-                        onClick={() => handleDelete(project.id)}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+          )}
 
-                    </div>
+          <button
+            className="icon-action danger"
+            onClick={() => handleDelete(project.projectid)}
+          >
+            <Trash2 size={15} />
+          </button>
 
-                  </td>
+        </div>
 
-                </tr>
+      </td>
 
-              ))}
+    </tr>
 
-            </tbody>
+  ))}
+
+</tbody>
 
           </table>
 

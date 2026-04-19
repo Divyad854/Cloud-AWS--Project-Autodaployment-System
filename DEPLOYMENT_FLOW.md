@@ -1,203 +1,238 @@
 # CloudLaunch Deployment Architecture
 
-## 🚀 Current Architecture (CodeBuild-based)
+## 🚀 Current Architecture (SQS + EC2 Runtime Manager)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  React Frontend (Deploy.jsx)                                    │
-│  - User selects ZIP file or GitHub URL                         │
-│  - Submits deployment request                                   │
+│  - User submits GitHub URL + runtime                            │
+│  - Authenticates via Cognito JWT                                │
 └────────────────┬────────────────────────────────────────────────┘
-                 │
+                 │ POST /api/deploy
                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  API Gateway / Express Backend (Node.js)                        │
-│  - Authenticates user (JWT from Cognito)                        │
-│  - Validates request (name, runtime, source)                    │
+│  Express Backend (Node.js)                                      │
+│  - Validates JWT token (middleware/auth.js)                     │
+│  - Validates deployment request                                 │
 │  - Generates projectId (UUID)                                   │
 └────────────────┬────────────────────────────────────────────────┘
                  │
-                 ▼
+        ┌────────┴────────┐
+        ▼                 ▼
+   ┌─────────┐      ┌──────────┐
+   │DynamoDB │      │SQS Queue │
+   │(Project)│      │(Messages)│
+   └─────────┘      └────┬─────┘
+                         │ Message Body:
+                         │ {
+                         │   action: "deploy",
+                         │   projectId: "uuid",
+                         │   project: {...}
+                         │ }
+                         ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│  AWS S3 (cloudlaunch-uploads bucket)                            │
-│  - ZIP uploaded to: s3://bucket/uploads/{projectId}/source.zip  │
-│  - Returns S3 key for reference                                 │
-│  Location: backend/aws/s3.js uploadZipToS3()                    │
-└────────────────┬────────────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  DynamoDB (Projects table)                                      │
-│  - Stores project metadata                                      │
-│  - Status: "building" → "running" → "active"                    │
-│  - Tracks: projectId, userId, runtime, sourceLocation, port     │
-│  Location: backend/controllers/projectController.js             │
-└────────────────┬────────────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  AWS CodeBuild (Managed Build Service)                          │
-│  - Starts build with project config                             │
-│  - Pulls source from S3                                         │
-│  - Runs buildspec.yml                                           │
+│  EC2 Instance (Runtime Manager - worker.js)                     │
+│  - Polls SQS every 10 seconds                                   │
+│  - Consumes deployment message                                  │
+│  - Clones GitHub repository                                     │
 │  - Builds Docker image                                          │
-│  - Pushes to AWS ECR (Elastic Container Registry)               │
-│  Location: infra/buildspec.yml                                  │
+│  - Runs container                                               │
+│  - Updates DynamoDB status to "running"                         │
+│  - Deletes message from queue                                   │
 └────────────────┬────────────────────────────────────────────────┘
-                 │
+                 │ Updates status
                  ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  AWS ECR (Container Registry)                                   │
-│  - Stores Docker images                                         │
-│  - Image tagged: {ECR_REGISTRY}/{projectId}:latest              │
-│  - Available for EC2 to pull                                    │
-└────────────────┬────────────────────────────────────────────────┘
+        ┌────────────────┐
+        │   DynamoDB     │
+        │ (Status: running)
+        └────────────────┘
+                 ▲
+                 │ GET /api/projects/:id
+                 │ (frontend polls)
                  │
-                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  AWS CloudWatch Logs                                            │
-│  - Build logs: /aws/codebuild/{CODEBUILD_PROJECT}               │
-│  - Runtime logs: /cloudlaunch/containers                        │
-│  - Tracked per projectId                                        │
-└────────────────┬────────────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  EC2 Instance (Runtime Manager)                                 │
-│  - Pulls image from ECR                                         │
-│  - Runs: docker run -p {PORT}:{PORT} {IMAGE}                    │
-│  - Serves app on: http://{EC2_IP}:{PORT}                        │
-│  - Manages lifecycle (start, stop, restart, delete)             │
-│  Location: infra/runtime-manager/server.js                      │
-└────────────────┬────────────────────────────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  Public URL Delivered                                           │
-│  - Dashboard shows: http://{EC2_IP}:{allocated_port}            │
-│  - User can access deployed app                                 │
-│  - Status updates via polling or WebSocket                      │
+┌────────────────┴────────────────────────────────────────────────┐
+│  React Frontend Dashboard                                       │
+│  - Shows deployment status                                      │
+│  - Displays live URL when ready                                 │
+│  - http://{EC2_IP}:{port}                                       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
+## 📋 Message Flow
 
-## 📊 Alternative Architecture (Lambda + SQS)
+### 1. Frontend → Backend
+```bash
+POST /api/deploy
+Content-Type: application/json
+Authorization: Bearer {cognito-id-token}
 
-If you want to migrate to a serverless approach:
-
-```
-React → API Gateway `/deploy` → Lambda (upload to S3) →
-SQS Message Queue → EC2 Worker (consumes queue) →
-Pull Container → Run Docker → Update DB → Return URL
-```
-
-### Lambda Function Example:
-```javascript
-// Replaces CodeBuild step
-const handler = async (event) => {
-  const projectId = "proj-" + Date.now();
-  const buffer = Buffer.from(event.body, "base64");
-  
-  // Upload to S3
-  await s3.putObject({
-    Bucket: "cloudlaunch-uploads",
-    Key: `uploads/${projectId}/source.zip`,
-    Body: buffer
-  }).promise();
-  
-  // Send SQS message to EC2 worker
-  await sqs.sendMessage({
-    QueueUrl: process.env.SQS_QUEUE_URL,
-    MessageBody: JSON.stringify({ projectId, s3Key })
-  }).promise();
-  
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      projectId,
-      message: "Deployment queued ✅"
-    })
-  };
-};
+{
+  "name": "my-app",
+  "runtime": "Node.js",
+  "githubUrl": "https://github.com/user/repo",
+  "branch": "main",
+  "port": 3000,
+  "env": "API_KEY=xxx\nDATABASE_URL=yyy"
+}
 ```
 
----
+### 2. Backend Processes Request
+- Validates JWT from Cognito
+- Extracts userId from token claims
+- Creates project metadata
+- Saves to DynamoDB with status: "queued"
+- Sends message to SQS
 
-## 📋 File Structure Reference
-
+### 3. SQS Message Format
+```json
+{
+  "action": "deploy",
+  "projectId": "7fe7cd2b-5f5d-4053-badf-f85635853050",
+  "project": {
+    "id": "7fe7cd2b-5f5d-4053-badf-f85635853050",
+    "userId": "cognito-sub-123",
+    "name": "my-app",
+    "runtime": "Node.js",
+    "githubUrl": "https://github.com/user/repo",
+    "branch": "main",
+    "port": 3000,
+    "env": "API_KEY=xxx\nDATABASE_URL=yyy",
+    "status": "queued",
+    "createdAt": "2024-04-16T10:30:00Z",
+    ...
+  }
+}
 ```
-backend/
-├── aws/
-│   └── s3.js                    ✅ Handles S3 uploads
-├── config/
-│   └── aws.js                   ✅ AWS SDK initialization
-├── controllers/
-│   └── projectController.js     ✅ Orchestrates deployment flow
-├── middleware/
-│   └── auth.js                  ✅ JWT validation
-└── routes/
-    └── projects.js              ✅ POST /api/projects
 
-frontend/
-└── pages/
-    └── Deploy.jsx               ✅ ZIP upload UI
+### 4. EC2 Worker Processes Message
+- Polls SQS queue every 10 seconds
+- Parses message body
+- Validates required fields
+- Updates project status to "building"
+- Clones GitHub repo: `git clone --branch main <github-url> /tmp/{projectId}`
+- Generates Dockerfile (if not present)
+- Builds Docker image: `docker build -t cloudlaunch-{projectId}:latest .`
+- Runs container: `docker run -d -p 3000:3000 cloudlaunch-{projectId}:latest`
+- Updates DynamoDB status to "running"
+- Deletes message from SQS
 
-infra/
-├── buildspec.yml                ✅ CodeBuild configuration
-├── runtime-manager/
-│   └── server.js                ✅ EC2 Docker container manager
-└── nginx.conf                   ✅ (Optional) Reverse proxy
+### 5. Frontend Polls Status
+```bash
+GET /api/projects/{projectId}
+Authorization: Bearer {cognito-id-token}
 ```
 
----
+Response:
+```json
+{
+  "id": "7fe7cd2b-5f5d-4053-badf-f85635853050",
+  "name": "my-app",
+  "status": "running",
+  "runtime": "Node.js",
+  "port": 3000,
+  "liveUrl": "http://ec2-ip:3000"
+}
+```
 
-## 🔧 Required Environment Variables
+## 🛠️ EC2 Setup
+
+### Prerequisites
+- AWS EC2 instance (t2.medium or larger recommended)
+- Docker installed
+- Node.js 18+
+- Git
+- AWS credentials (IAM instance profile preferred)
+
+### Installation Steps
 
 ```bash
-# AWS Credentials
+# 1. SSH into EC2
+ssh -i your-key.pem ec2-user@your-ec2-ip
+
+# 2. Clone repository
+git clone https://github.com/your-repo/cloudlaunch.git
+cd cloudlaunch
+
+# 3. Run setup script
+chmod +x infra/setup-ec2.sh
+bash infra/setup-ec2.sh
+
+# 4. Configure environment
+cat > .env << EOF
 AWS_REGION=ap-south-1
-AWS_ACCESS_KEY_ID=xxxxx
-AWS_SECRET_ACCESS_KEY=xxxxx
+SQS_QUEUE_URL=https://sqs.ap-south-1.amazonaws.com/ACCOUNT/deployqueue
+PROJECTS_TABLE=cloudlaunch-projects
+LOGS_TABLE=cloudlaunch-logs
+EOF
 
-# AWS Services
-COGNITO_USER_POOL_ID=xxxxx
-CODEBUILD_PROJECT=xxxxx
-ECR_REGISTRY=xxxxx.dkr.ecr.ap-south-1.amazonaws.com
-ECR_REPOSITORY=cloudlaunch-apps
+# 5. Start processes
+pm2 start ecosystem.config.js
+pm2 save
 
-# Optional (for Lambda+SQS)
-SQS_QUEUE_URL=https://sqs.ap-south-1.amazonaws.com/.../queue
-
-# EC2
-EC2_HOST=your-ec2-ip
-EC2_PORT=8080
+# 6. Verify
+pm2 list
+pm2 logs deploy-worker
 ```
 
----
+### Required IAM Permissions
 
-## ✅ Deployment Checklist
+For the EC2 instance role:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": "arn:aws:sqs:ap-south-1:ACCOUNT:deployqueue"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:PutItem"
+      ],
+      "Resource": "arn:aws:dynamodb:ap-south-1:ACCOUNT:table/cloudlaunch-*"
+    }
+  ]
+}
+```
 
-When user uploads ZIP:
-- [ ] ZIP file size < 100MB
-- [ ] Contains Dockerfile at root
-- [ ] Contains package.json or equivalent
-- [ ] App listens on PORT 3000 by default
-- [ ] No node_modules/ in ZIP (use .dockerignore)
+## 📊 File Reference
 
-Expected flow:
-- [ ] Upload → S3 ✅
-- [ ] DynamoDB record created ✅
-- [ ] CodeBuild triggered ✅
-- [ ] Docker image built & pushed to ECR ✅
-- [ ] EC2 pulls image & runs container ✅
-- [ ] URL returned to frontend ✅
+```
+infra/
+├── runtime-manager/
+│   ├── server.js           # REST API for container management
+│   └── worker.js           # SQS consumer (MAIN WORKER)
+├── setup-ec2.sh            # EC2 setup script
+└── ecosystem.config.js     # PM2 process manager config (root)
+```
 
----
+## ✅ Key Features
+
+- ✅ Scalable: Multiple EC2 workers can consume from same queue
+- ✅ Durable: SQS ensures messages aren't lost
+- ✅ Resilient: Failed deployments update status to "error"
+- ✅ Logged: All events logged to DynamoDB and CloudWatch
+- ✅ Secure: JWT authentication on all API calls
+- ✅ Multi-Runtime: Supports Node.js, Python, Java with generated Dockerfiles
 
 ## 🐛 Troubleshooting
 
-**Problem**: "Cannot read properties of undefined (reading 'sub')"
+**Problem**: Worker logs show "Invalid message"
+**Solution**: Check SQS message format in backend. Ensure `action`, `projectId`, `project` are present.
+
+**Problem**: "No Authorization header" from frontend
+**Solution**: Check Amplify config in `frontend/src/aws-config.js`. Ensure Cognito pool ID is correct.
+
+**Problem**: Container fails to start
+**Solution**: Check Docker permissions (`docker ps`), GitHub repo access, and runtime environment variables.
 **Solution**: Ensure auth middleware sets `req.user = payload` ✅
 
 **Problem**: "Query condition missed key schema element: userId"
