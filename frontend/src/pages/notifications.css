@@ -1,0 +1,216 @@
+/* BACKGROUND FEEL */
+.user-notif-container {
+  padding: 30px;
+  color: #fff;
+}
+
+/* TITLE */
+.title {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 28px;
+
+  background: linear-gradient(90deg, #60a5fa, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* LIST */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* 🔥 PREMIUM CARD */
+.notif-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  padding: 18px 22px;
+  border-radius: 16px;
+
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(12px);
+
+  border: 1px solid rgba(255, 255, 255, 0.08);
+
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ✨ GLOW BORDER EFFECT */
+.notif-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+
+  background: linear-gradient(120deg, #3b82f6, #8b5cf6, #ec4899);
+
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+
+  opacity: 0;
+  transition: 0.3s;
+
+  pointer-events: none; /* 🔥 IMPORTANT FIX */
+}
+
+/* HOVER MAGIC */
+.notif-card:hover::before {
+  opacity: 1;
+}
+
+.notif-card:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+}
+
+/* ICON */
+.notif-left {
+  font-size: 20px;
+  width: 46px;
+  height: 46px;
+
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  border-radius: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  box-shadow: inset 0 0 10px rgba(255,255,255,0.05);
+}
+
+/* CONTENT */
+.notif-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+/* TITLE */
+.notif-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* MESSAGE */
+.notif-message {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* TIME */
+.notif-time {
+  font-size: 12px;
+  color: #94a3b8;
+
+  background: rgba(255,255,255,0.05);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+/* DELETE BUTTON - FIXED */
+.delete-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+
+  color: #64748b;
+  font-size: 16px;
+
+  padding: 6px;
+  border-radius: 6px;
+
+  transition: all 0.2s ease;
+
+  position: relative;
+  z-index: 2; /* 🔥 ensures click works */
+}
+
+/* HOVER */
+.delete-btn:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  transform: scale(1.1);
+}
+
+/* CLICK */
+.delete-btn:active {
+  transform: scale(0.95);
+}
+
+/* EMPTY */
+.empty {
+  text-align: center;
+  padding: 50px;
+  border-radius: 14px;
+
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+
+  border: 1px dashed #374151;
+  color: #9ca3af;
+}
+
+
+/* HEADER LAYOUT */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+/* REFRESH BUTTON */
+.refresh-btn {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+
+  border: none;
+  outline: none;
+
+  padding: 8px 16px;
+  border-radius: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  transition: all 0.25s ease;
+}
+
+/* HOVER */
+.refresh-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(59, 130, 246, 0.4);
+}
+
+/* CLICK */
+.refresh-btn:active {
+  transform: scale(0.95);
+}
+
+/* OPTIONAL ICON STYLE (if you add icon later) */
+.refresh-btn svg {
+  transition: transform 0.4s ease;
+}
+
+.refresh-btn:hover svg {
+  transform: rotate(180deg);
+}

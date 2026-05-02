@@ -1,0 +1,188 @@
+/* ===============================
+Sidebar Layout
+================================ */
+
+.sidebar {
+  width: 240px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+}
+
+.sidebar.collapsed {
+  width: 64px;
+}
+
+/* ===============================
+Header
+================================ */
+
+.sidebar-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 12px;
+  padding: 20px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ===============================
+Brand
+================================ */
+
+.brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.logo {
+  width: 54px;
+  height: 54px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    rgba(99,102,241,0.18),
+    rgba(34,211,238,0.16)
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.app-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
+/* ===============================
+Brand Text
+================================ */
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.project-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.highlight {
+  color: var(--primary);
+}
+
+/* ===============================
+Collapse Button
+================================ */
+
+.collapse-btn {
+  align-self: start;
+  margin-top: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  cursor: pointer;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===============================
+Navigation
+================================ */
+
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-item {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 10px 12px;
+  border-radius: 8px;
+
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+
+  transition: background 0.2s ease;
+}
+
+.nav-item:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: rgba(99,102,241,0.15);
+  color: var(--primary);
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+}
+
+/* ===============================
+Footer
+================================ */
+
+.sidebar-footer {
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}.logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 10px 12px;
+  border-radius: 8px;
+
+  background: transparent;
+  border: none;
+
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+/* Hover effect */
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+/* Active click */
+.logout-btn:active {
+  background: rgba(239, 68, 68, 0.18);
+}
+
+.sidebar.collapsed .logout-btn {
+  justify-content: center;
+}
