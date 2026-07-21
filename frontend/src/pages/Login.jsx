@@ -15,30 +15,21 @@ export default function Login() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // 🔐 Login attempt states
   const [attempts, setAttempts] = useState(0);
   const [remainingAttempts, setRemainingAttempts] = useState(3);
   const [lockTime, setLockTime] = useState(0);
   const [lockLevel, setLockLevel] = useState(1);
 
-  // 🔁 Redirect when logged in
   useEffect(() => {
     if (user) {
-      if (isAdmin) {
-        navigate('/admin/dashboard', { replace: true });
-      } else {
-        navigate('/dashboard', { replace: true });
-      }
+      navigate(isAdmin ? '/admin/dashboard' : '/dashboard', { replace: true });
     }
   }, [user, isAdmin, navigate]);
 
-  // ⏳ Countdown timer
   useEffect(() => {
     let timer;
     if (lockTime > 0) {
-      timer = setInterval(() => {
-        setLockTime((prev) => prev - 1);
-      }, 1000);
+      timer = setInterval(() => setLockTime((p) => p - 1), 1000);
     } else if (lockTime === 0 && remainingAttempts === 0) {
       setRemainingAttempts(1);
     }
@@ -48,75 +39,68 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (remainingAttempts <= 0) return;
-
     setLoading(true);
-
     try {
       const result = await login(form.email, form.password);
-
       if (result?.nextStep?.signInStep === 'CONFIRM_SIGN_UP') {
         navigate('/verify-email', { state: { email: form.email } });
         return;
       }
-
-      // ✅ Reset on success
-      setAttempts(0);
-      setRemainingAttempts(3);
-      setLockLevel(1);
-
+      setAttempts(0); setRemainingAttempts(3); setLockLevel(1);
       toast.success('Welcome back!');
-
-    }catch (err) {
-
-  console.log("LOGIN ERROR:", err);
-
-  // 🔴 BLOCKED USER CHECK
-  if (
-    err.name === "UserDisabledException" ||
-    err.message?.includes("disabled")
-  ) {
-    toast.error("Your account has been blocked by admin.");
-    return;
-  }
-
-  const newAttempts = attempts + 1;
-  setAttempts(newAttempts);
-
-  const newRemaining = remainingAttempts - 1;
-  setRemainingAttempts(newRemaining);
-
-  toast.error(
-    `Login failed. ${
-      newRemaining > 0
-        ? `${newRemaining} attempt(s) remaining.`
-        : "Too many attempts!"
-    }`
-  );
-
-  if (newRemaining === 0) {
-    const lockSeconds = 30 * lockLevel;
-    setLockTime(lockSeconds);
-    setLockLevel(lockLevel + 1);
-  }
-
-}finally {
+    } catch (err) {
+      console.log('LOGIN ERROR:', err);
+      if (err.name === 'UserDisabledException' || err.message?.includes('disabled')) {
+        toast.error('Your account has been blocked by admin.');
+        return;
+      }
+      const newAttempts = attempts + 1;
+      const newRemaining = remainingAttempts - 1;
+      setAttempts(newAttempts);
+      setRemainingAttempts(newRemaining);
+      toast.error(`Login failed. ${newRemaining > 0 ? `${newRemaining} attempt(s) remaining.` : 'Too many attempts!'}`);
+      if (newRemaining === 0) {
+        const lockSeconds = 30 * lockLevel;
+        setLockTime(lockSeconds);
+        setLockLevel(lockLevel + 1);
+      }
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <div className="auth-page">
+      {/* Navbar */}
+      <nav className="auth-navbar">
+        <Link to="/" className="auth-nav-brand">
+          <img src={logo} alt="logo" className="auth-nav-logo" />
+          <span className="auth-nav-name">
+            Project Auto<span className="auth-nav-accent">Deploy</span>ment System
+          </span>
+        </Link>
+        <div className="auth-nav-links">
+          <a href="/#home">Home</a>
+          <a href="/#features">Features</a>
+          <a href="/#how">How it works</a>
+          <a href="/#contact">Contact</a>
+        </div>
+      </nav>
+
+      {/* Animated background grid */}
+      <div className="auth-grid" />
+
+      {/* Card */}
       <div className="auth-card">
-<div className="auth-logo">
-  <img src={logo} alt="Auto Deployment Logo" className="logo-img" />
-  <h1 className="project-title">Project Deployment System</h1>
-</div>
+        {/* Heading */}
+        <div className="welcome-row">
+          <h2 className="welcome-title">
+            Welcome <span>back</span>
+          </h2>
+          <span className="auth-subtitle">Sign in to continue deploying</span>
+        </div>
 
-      <div className="welcome-row">
-  <h2 className="welcome-title">Welcome back</h2>
-  <span className="auth-subtitle">Sign in to your account</span>
-</div>
-
+        {/* Form */}
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label>Email</label>
@@ -125,9 +109,7 @@ export default function Login() {
               required
               placeholder="you@example.com"
               value={form.email}
-              onChange={(e) =>
-                setForm({ ...form, email: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
               disabled={lockTime > 0}
             />
           </div>
@@ -140,9 +122,7 @@ export default function Login() {
                 required
                 placeholder="••••••••"
                 value={form.password}
-                onChange={(e) =>
-                  setForm({ ...form, password: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
                 disabled={lockTime > 0}
               />
               <button
@@ -156,21 +136,14 @@ export default function Login() {
           </div>
 
           <div className="form-row">
-            <Link to="/forgot-password" className="link">
-              Forgot password?
-            </Link>
+            <Link to="/forgot-password" className="link">Forgot password?</Link>
           </div>
 
           {remainingAttempts > 0 && attempts > 0 && (
-            <p className="attempt-warning">
-              Remaining Attempts: {remainingAttempts}
-            </p>
+            <p className="attempt-warning">⚠ Remaining attempts: {remainingAttempts}</p>
           )}
-
           {lockTime > 0 && (
-            <p className="lock-warning">
-              Too many failed attempts. Try again in {lockTime} seconds.
-            </p>
+            <p className="lock-warning">🔒 Too many attempts. Try again in {lockTime}s.</p>
           )}
 
           <button
@@ -178,21 +151,14 @@ export default function Login() {
             className="btn-primary"
             disabled={loading || lockTime > 0}
           >
-            {loading
-              ? 'Signing in...'
-              : lockTime > 0
-              ? `Locked (${lockTime}s)`
-              : 'Sign In'}
+            {loading ? 'Signing in…' : lockTime > 0 ? `Locked (${lockTime}s)` : 'Sign In →'}
           </button>
         </form>
 
         <p className="auth-footer">
           Don't have an account?{' '}
-          <Link to="/register" className="link">
-            Sign up
-          </Link>
+          <Link to="/register" className="link">Create one free</Link>
         </p>
-
       </div>
     </div>
   );

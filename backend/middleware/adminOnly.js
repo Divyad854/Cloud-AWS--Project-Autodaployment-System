@@ -1,5 +1,15 @@
+// module.exports = (req, res, next) => {
+//   if (req.user['custom:role'] !== 'admin') {
+//     return res.status(403).json({
+//       message: 'Access denied. Admin only.',
+//     });
+//   }
+
+//   next();
+// };
+
 module.exports = (req, res, next) => {
-  if (req.user['custom:role'] !== 'admin') {
+  if (!req.user || req.user['custom:role'] !== 'admin') {
     return res.status(403).json({
       message: 'Access denied. Admin only.',
     });

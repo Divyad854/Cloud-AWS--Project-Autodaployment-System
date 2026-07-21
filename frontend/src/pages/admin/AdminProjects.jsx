@@ -114,7 +114,7 @@ export default function AdminProjects() {
               <th>Owner</th>
               <th>Status</th>
               <th>Runtime</th>
-              <th>Live URL</th>
+              
               <th>Actions</th>
             </tr>
           </thead>
@@ -125,13 +125,7 @@ export default function AdminProjects() {
                 <td className="muted">{p.userEmail || p.partitionid}</td>
                 <td><StatusBadge status={p.status} /></td>
                 <td>{p.runtime}</td>
-                <td>
-                  {p.deployUrl ? (
-                    <a href={p.deployUrl} target="_blank" rel="noreferrer" className="live-url">
-                      <ExternalLink size={13} /> Open
-                    </a>
-                  ) : <span className="muted">—</span>}
-                </td>
+                
                 <td>
                   <div className="action-buttons">
                     <button className="icon-action danger" title="Delete" onClick={() => handleDelete(p)}>

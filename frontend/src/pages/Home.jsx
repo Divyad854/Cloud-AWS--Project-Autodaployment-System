@@ -53,7 +53,7 @@ export default function Home() {
           </p>
 
           <div className="hero-buttons">
-            <Link to="/register" className="btn-primary">
+            <Link to="/register" className="btn-outline">
               Start Free
               <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
                 <path d="M3.75 9H14.25M9.75 4.5L14.25 9L9.75 13.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -178,7 +178,7 @@ export default function Home() {
             <div className="section-tag">WHY US</div>
             <h2 className="section-title" style={{ textAlign: "left" }}>No More Manual Deployment</h2>
             <p className="section-sub" style={{ textAlign: "left" }}>Stop wasting time on DevOps. Focus on building.</p>
-            <Link to="/register" className="btn-primary" style={{ display: "inline-flex", marginTop: "8px" }}>
+            <Link to="/register" className="btn-outline" style={{ display: "inline-flex", marginTop: "8px" }}>
               Get Started Free
               <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
                 <path d="M3.75 9H14.25M9.75 4.5L14.25 9L9.75 13.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

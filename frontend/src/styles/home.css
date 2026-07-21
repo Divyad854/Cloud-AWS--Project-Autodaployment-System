@@ -241,18 +241,23 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1.5px solid rgba(148,163,184,0.28);
-  color: var(--text);
+  background: linear-gradient(135deg, #5343e4, #624ff0);
+  color: #ffffff;
   text-decoration: none;
   font-family: var(--font-body);
   font-size: 1rem;
   font-weight: 600;
   padding: 15px 30px;
+  border: none;
   border-radius: 11px;
-  transition: border-color 0.2s, background 0.2s;
+  box-shadow: 0 4px 14px rgba(109, 93, 252, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.btn-outline:hover { border-color: var(--indigo-light); background: rgba(99,102,241,0.07); }
 
+.btn-outline:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(109, 93, 252, 0.45);
+}
 /* Stats */
 .hero-stats { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
 .stat { display: flex; flex-direction: column; }

@@ -14,12 +14,11 @@ import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
  * 🔥 AWS CONFIG (PUT YOUR KEYS HERE)
  */
 
-
 const client = new DynamoDBClient({
   region: "ap-south-1",
   credentials: {
-    accessKeyId: "---",
-  secretAccessKey: "---",
+    accessKeyId: "",
+  secretAccessKey: "",
   },
 });
 
